@@ -2,12 +2,11 @@
 // Checks usingMockData at CALL TIME (not module load time) to handle the
 // async DB connection race condition correctly.
 
-import pool, { usingMockData } from '../db.js';
+import pool from '../db.js';
 import * as mock from './mockData.js';
 
 // Helper: safe check at call-time (pool may become null after failed ping)
-const useDB = () => !usingMockData && pool !== null;
-
+const useDB = () => pool !== null;
 // ─── Departments ──────────────────────────────────────────────────────────────
 export const getDepartments = async () => {
   if (!useDB()) return [...mock.departments];

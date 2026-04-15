@@ -34,10 +34,10 @@ app.get('/', (req, res) => {
 });
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
-// app.use('/api/leave',          leaveRoutes);
-// app.use('/api/smart-evaluate', smartEvaluateRoutes);
-// app.use('/api/simulate',       simulateRoutes);
-// app.use('/api/dashboard',      dashboardRoutes);
+app.use('/api/leave', leaveRoutes);
+app.use('/api/smart-evaluate', smartEvaluateRoutes);
+app.use('/api/simulate', simulateRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // ─── 404 ─────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
