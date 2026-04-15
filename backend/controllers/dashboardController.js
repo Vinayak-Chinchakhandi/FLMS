@@ -18,7 +18,7 @@ export const getHeatmap = async (req, res) => {
 
       const leavesByDate = {};
       leaveRequests
-        .filter((lr) => facultyInDept.includes(lr.faculty_id))
+        .filter((lr) => facultyInDept.includes(Number(lr.faculty_id)))
         .forEach((lr) => {
           const key = lr.from_date instanceof Date
             ? lr.from_date.toISOString().split('T')[0]
@@ -31,27 +31,32 @@ export const getHeatmap = async (req, res) => {
       const deptScoreData = deptScores.filter((ds) => ds.department_id === dept.id);
 
       return {
-        departmentId:   dept.id,
+        departmentId: dept.id,
         departmentName: dept.name,
-        facultyCount:   facultyInDept.length,
-        leaveActivity:  Object.entries(leavesByDate).map(([date, data]) => ({
+        facultyCount: facultyInDept.length,
+        leaveActivity: Object.entries(leavesByDate).map(([date, data]) => ({
           date,
-          count:     data.count,
-          avgImpact: parseFloat((data.totalImpact / data.count).toFixed(2)),
+          count: data.count,
+          avgImpact: data.count
+            ? parseFloat((data.totalImpact / data.count).toFixed(2))
+            : 0,
         })),
         performanceScores: deptScoreData.map((ds) => ({
-          date:  ds.date instanceof Date ? ds.date.toISOString().split('T')[0] : String(ds.date).split('T')[0],
+          date: ds.date instanceof Date ? ds.date.toISOString().split('T')[0] : String(ds.date).split('T')[0],
           score: ds.score,
         })),
       };
     });
 
-    const totalLeaves   = leaveRequests.length;
+    const totalLeaves = leaveRequests.length;
     const pendingLeaves = leaveRequests.filter((lr) => lr.status === 'pending').length;
-    const avgImpact     = totalLeaves
-      ? parseFloat(
-          (leaveRequests.reduce((s, lr) => s + (Number(lr.impact_score) || 0), 0) / totalLeaves).toFixed(2)
-        )
+    const totalImpact = leaveRequests.reduce(
+      (s, lr) => s + (Number(lr.impact_score) || 0),
+      0
+    );
+
+    const avgImpact = totalLeaves
+      ? parseFloat((totalImpact / totalLeaves).toFixed(2))
       : 0;
 
     res.json({
@@ -79,23 +84,23 @@ export const getLeaderboard = async (req, res) => {
         .filter((u) => u.department_id === dept.id && u.role === 'faculty')
         .map((u) => u.id);
 
-      const deptLeaves = leaveRequests.filter((lr) => facultyInDept.includes(lr.faculty_id));
-      const approved   = deptLeaves.filter((lr) => lr.status === 'approved').length;
-      const pending    = deptLeaves.filter((lr) => lr.status === 'pending').length;
-      const rejected   = deptLeaves.filter((lr) => lr.status === 'rejected').length;
+      const deptLeaves = leaveRequests.filter((lr) => facultyInDept.includes(Number(lr.faculty_id)));
+      const approved = deptLeaves.filter((lr) => lr.status === 'approved').length;
+      const pending = deptLeaves.filter((lr) => lr.status === 'pending').length;
+      const rejected = deptLeaves.filter((lr) => lr.status === 'rejected').length;
       const totalLeaves = deptLeaves.length;
 
       const avgImpact = totalLeaves
         ? parseFloat(
-            (deptLeaves.reduce((s, lr) => s + (Number(lr.impact_score) || 0), 0) / totalLeaves).toFixed(2)
-          )
+          (deptLeaves.reduce((s, lr) => s + (Number(lr.impact_score) || 0), 0) / totalLeaves).toFixed(2)
+        )
         : 0;
 
       const avgLoad = facultyInDept.length
         ? parseFloat(
-            (facultyInDept.reduce((s, id) => s + allSlots.filter((t) => t.faculty_id === id).length, 0)
-              / facultyInDept.length).toFixed(1)
-          )
+          (facultyInDept.reduce((s, id) => s + allSlots.filter((t) => Number(t.faculty_id) === id).length, 0)
+            / facultyInDept.length).toFixed(1)
+        )
         : 0;
 
       const latestScore = deptScores
@@ -105,14 +110,14 @@ export const getLeaderboard = async (req, res) => {
       const responsibilityScore = Math.max(0, latestScore - avgImpact * 2 - pending * 5);
 
       return {
-        departmentId:        dept.id,
-        departmentName:      dept.name,
-        facultyCount:        facultyInDept.length,
+        departmentId: dept.id,
+        departmentName: dept.name,
+        facultyCount: facultyInDept.length,
         totalLeaves,
         approved, pending, rejected,
-        avgImpactScore:      avgImpact,
-        avgFacultyLoad:      avgLoad,
-        performanceScore:    latestScore,
+        avgImpactScore: avgImpact,
+        avgFacultyLoad: avgLoad,
+        performanceScore: latestScore,
         responsibilityScore: parseFloat(responsibilityScore.toFixed(1)),
       };
     });
