@@ -1,0 +1,21 @@
+{
+  "appId": "com.iflo.app",
+  "appName": "IFLO",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#4f46e5",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}
