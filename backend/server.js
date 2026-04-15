@@ -1,16 +1,16 @@
 import express from 'express';
-import cors    from 'cors';
-import dotenv  from 'dotenv';
+import cors from 'cors';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
 // Routes — imported AFTER dotenv so env vars are available during module init
-import leaveRoutes         from './routes/leave.js';
+import leaveRoutes from './routes/leave.js';
 import smartEvaluateRoutes from './routes/smartEvaluate.js';
-import simulateRoutes      from './routes/simulate.js';
-import dashboardRoutes     from './routes/dashboard.js';
+import simulateRoutes from './routes/simulate.js';
+import dashboardRoutes from './routes/dashboard.js';
 
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
@@ -24,20 +24,20 @@ app.use(express.urlencoded({ extended: true }));
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
-    project:  'Intelligent Faculty Leave Orchestrator (IFLO)',
-    version:  '1.0.0',
-    status:   'running',
-    mode:     process.env.DATABASE_URL ? 'postgresql' : 'mock-data',
-    env:      process.env.NODE_ENV || 'development',
+    project: 'Intelligent Faculty Leave Orchestrator (IFLO)',
+    version: '1.0.0',
+    status: 'running',
+    mode: process.env.DATABASE_URL ? 'postgresql' : 'mock-data',
+    env: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
   });
 });
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
-app.use('/api/leave',          leaveRoutes);
-app.use('/api/smart-evaluate', smartEvaluateRoutes);
-app.use('/api/simulate',       simulateRoutes);
-app.use('/api/dashboard',      dashboardRoutes);
+// app.use('/api/leave',          leaveRoutes);
+// app.use('/api/smart-evaluate', smartEvaluateRoutes);
+// app.use('/api/simulate',       simulateRoutes);
+// app.use('/api/dashboard',      dashboardRoutes);
 
 // ─── 404 ─────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
