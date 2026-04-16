@@ -20,7 +20,8 @@ import dashboardRoutes from './routes/dashboard.js';
 console.log('[BOOT] All route modules loaded successfully');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 8080;
+console.log('[BOOT] Final PORT used:', PORT);
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 // Fully open for hackathon demo (Capacitor mobile + browser + Railway)
@@ -46,6 +47,10 @@ app.get('/', (_req, res) => {
     env: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
   });
+});
+
+app.get('/health', (_req, res) => {
+  res.status(200).send('OK');
 });
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
