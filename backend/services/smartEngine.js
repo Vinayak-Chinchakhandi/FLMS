@@ -5,8 +5,15 @@ import { getLeaveRequests, getUserById } from '../utils/dataLayer.js';
 import { getAffectedClasses }            from '../utils/helpers.js';
 import { suggestSubstitutes }            from './substituteService.js';
 
-export const evaluateLeave = async (facultyId, fromDate, toDate, reason) => {
-  const faculty = await getUserById(facultyId);
+// Normalize any date value → 'YYYY-MM-DD' string (safe for both mock & pg)
+const toStr = (val) => {
+  if (!val) return '';
+  if (val instanceof Date) return val.toISOString().split('T')[0];
+  return String(val).split('T')[0];
+};
+
+export const evaluateLeave = async (facultyId, fromDate, toDate, reason = '') => {
+  const faculty = await getUserById(Number(facultyId));
   if (!faculty) throw new Error(`Faculty with id ${facultyId} not found`);
 
   const affectedClasses = await getAffectedClasses(facultyId, fromDate, toDate);
@@ -15,12 +22,15 @@ export const evaluateLeave = async (facultyId, fromDate, toDate, reason) => {
   // ── Conflict detection ────────────────────────────────────────────────────
   const conflicts = [];
 
+  const fromStr = toStr(fromDate);
+  const toStr_  = toStr(toDate);
+
   const existingLeave = allLeaves.find(
     (r) =>
-      r.faculty_id === Number(facultyId) &&
+      Number(r.faculty_id) === Number(facultyId) &&
       ['approved', 'pending'].includes(r.status) &&
-      r.from_date <= toDate &&
-      r.to_date   >= fromDate
+      toStr(r.from_date) <= toStr_ &&
+      toStr(r.to_date)   >= fromStr
   );
   if (existingLeave) {
     conflicts.push({
@@ -45,8 +55,12 @@ export const evaluateLeave = async (facultyId, fromDate, toDate, reason) => {
   approvalScore -= conflicts.length * 15;
   approvalScore -= affectedClasses.length * 5;
 
-  const leaveDuration =
-    (new Date(toDate) - new Date(fromDate)) / (1000 * 60 * 60 * 24) + 1;
+  const startMs = new Date(fromStr).getTime();
+  const endMs   = new Date(toStr_).getTime();
+  const leaveDuration = isNaN(startMs) || isNaN(endMs)
+    ? 1
+    : Math.round((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1;
+
   if (leaveDuration <= 2) approvalScore += 10;
 
   approvalScore = Math.max(0, Math.min(100, approvalScore));
@@ -59,10 +73,10 @@ export const evaluateLeave = async (facultyId, fromDate, toDate, reason) => {
   else                          recommendation = 'REJECT';
 
   return {
-    facultyId,
+    facultyId:    Number(facultyId),
     facultyName:           faculty.name,
-    fromDate,
-    toDate,
+    fromDate:              fromStr,
+    toDate:                toStr_,
     leaveDuration,
     approvalScore,
     recommendation,

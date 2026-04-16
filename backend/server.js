@@ -4,11 +4,20 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// ─── Startup Diagnostics ─────────────────────────────────────────────────────
+console.log('[BOOT] IFLO Backend starting...');
+console.log('[BOOT] Node version:', process.version);
+console.log('[BOOT] NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('[BOOT] PORT env:', process.env.PORT || '(not set, defaulting to 3000)');
+console.log('[BOOT] DATABASE_URL:', process.env.DATABASE_URL ? '✅ present' : '❌ absent → mock data mode');
+
 // Routes — imported AFTER dotenv so env vars are available during module init
 import leaveRoutes from './routes/leave.js';
 import smartEvaluateRoutes from './routes/smartEvaluate.js';
 import simulateRoutes from './routes/simulate.js';
 import dashboardRoutes from './routes/dashboard.js';
+
+console.log('[BOOT] All route modules loaded successfully');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,8 +30,14 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// ─── Request Logger ───────────────────────────────────────────────────────────
+app.use((req, _res, next) => {
+  console.log(`[REQ] ${req.method} ${req.path}`);
+  next();
+});
+
 // ─── Health Check ─────────────────────────────────────────────────────────────
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.json({
     project: 'Intelligent Faculty Leave Orchestrator (IFLO)',
     version: '1.0.0',
@@ -63,17 +78,26 @@ app.use((err, req, res, _next) => {
 
 // ─── Uncaught exception guard — prevent Railway container crash ───────────────
 process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err.message);
+  console.error('[FATAL uncaughtException]', err.stack || err.message);
+  // Do NOT exit — let Railway health check detect and restart
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason);
+  console.error('[FATAL unhandledRejection]', reason?.stack || reason);
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚀 IFLO Backend → http://0.0.0.0:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀 IFLO Backend LISTENING on 0.0.0.0:${PORT}`);
   console.log(`📋 Mode: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'In-memory mock data'}`);
   console.log(`🌍 Env:  ${process.env.NODE_ENV || 'development'}\n`);
+});
+
+server.on('error', (err) => {
+  console.error('[SERVER ERROR]', err.message);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[SERVER ERROR] Port ${PORT} is already in use — exiting`);
+    process.exit(1);
+  }
 });
 
 export default app;
