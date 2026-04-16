@@ -43,6 +43,17 @@ export const getUserById = async (id) => {
   }
 };
 
+export const getUserByEmail = async (email) => {
+  if (!useDB()) return mock.users.find((u) => u.email === email) || null;
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    return rows[0] || null;
+  } catch (e) {
+    console.warn('[dataLayer] getUserByEmail DB error, using mock:', e.message);
+    return mock.users.find((u) => u.email === email) || null;
+  }
+};
+
 // ─── Timetable ────────────────────────────────────────────────────────────────
 export const getTimetable = async () => {
   if (!useDB()) return [...mock.timetable];
@@ -106,11 +117,17 @@ export const getLeaveById = async (id) => {
 };
 
 export const createLeaveRequest = async ({ faculty_id, from_date, to_date, reason, impact_score = 0 }) => {
+  const faculty = await getUserById(Number(faculty_id));
+  const department_id = faculty ? faculty.department_id : null;
+
   if (!useDB()) {
     const rec = {
       id: mock.nextId(mock.leaveRequests),
       faculty_id: Number(faculty_id),
-      from_date, to_date, reason,
+      department_id,
+      from_date,
+      to_date,
+      reason,
       status: 'pending',
       impact_score,
     };
@@ -119,9 +136,9 @@ export const createLeaveRequest = async ({ faculty_id, from_date, to_date, reaso
   }
   try {
     const { rows } = await pool.query(
-      `INSERT INTO leave_requests (faculty_id, from_date, to_date, reason, status, impact_score)
-       VALUES ($1, $2, $3, $4, 'pending', $5) RETURNING *`,
-      [faculty_id, from_date, to_date, reason, impact_score]
+      `INSERT INTO leave_requests (faculty_id, department_id, from_date, to_date, reason, status, impact_score)
+       VALUES ($1, $2, $3, $4, $5, 'pending', $6) RETURNING *`,
+      [faculty_id, department_id, from_date, to_date, reason, impact_score]
     );
     return normalizeLeaveRow(rows[0]);
   } catch (e) {
@@ -129,7 +146,10 @@ export const createLeaveRequest = async ({ faculty_id, from_date, to_date, reaso
     const rec = {
       id: mock.nextId(mock.leaveRequests),
       faculty_id: Number(faculty_id),
-      from_date, to_date, reason,
+      department_id,
+      from_date,
+      to_date,
+      reason,
       status: 'pending',
       impact_score,
     };
@@ -173,6 +193,162 @@ export const getDeptScores = async () => {
   } catch (e) {
     console.warn('[dataLayer] getDeptScores DB error, using mock:', e.message);
     return [...mock.deptScores];
+  }
+};
+
+export const getLeavesByFaculty = async (facultyId) => {
+  const numId = Number(facultyId);
+  if (!useDB()) return mock.leaveRequests.filter((r) => Number(r.faculty_id) === numId);
+  try {
+    const { rows } = await pool.query('SELECT * FROM leave_requests WHERE faculty_id = $1 ORDER BY id DESC', [numId]);
+    return rows.map(normalizeLeaveRow);
+  } catch (e) {
+    console.warn('[dataLayer] getLeavesByFaculty DB error, using mock:', e.message);
+    return mock.leaveRequests.filter((r) => Number(r.faculty_id) === numId);
+  }
+};
+
+export const getLeavesByDepartment = async (departmentId) => {
+  const numId = Number(departmentId);
+  if (!useDB()) return mock.leaveRequests.filter((r) => Number(r.department_id) === numId);
+  try {
+    const { rows } = await pool.query('SELECT * FROM leave_requests WHERE department_id = $1 ORDER BY id DESC', [numId]);
+    return rows.map(normalizeLeaveRow);
+  } catch (e) {
+    console.warn('[dataLayer] getLeavesByDepartment DB error, using mock:', e.message);
+    return mock.leaveRequests.filter((r) => Number(r.department_id) === numId);
+  }
+};
+
+export const getSubstitutionsByFaculty = async (facultyId) => {
+  const numId = Number(facultyId);
+  if (!useDB()) {
+    return mock.substitutions
+      .filter((s) => Number(s.substitute_faculty_id) === numId)
+      .map((s) => ({
+        ...s,
+        originalFaculty: mock.users.find((u) => u.id === s.original_faculty_id) || null,
+      }));
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT s.*, o.name AS original_name, u.name AS substitute_name
+         FROM substitutions s
+         JOIN users o ON o.id = s.original_faculty_id
+         JOIN users u ON u.id = s.substitute_faculty_id
+        WHERE s.substitute_faculty_id = $1
+        ORDER BY s.id DESC`,
+      [numId]
+    );
+    return rows.map((row) => ({
+      ...row,
+      originalFaculty: { id: row.original_faculty_id, name: row.original_name },
+      substituteName: row.substitute_name,
+    }));
+  } catch (e) {
+    console.warn('[dataLayer] getSubstitutionsByFaculty DB error, using mock:', e.message);
+    return mock.substitutions
+      .filter((s) => Number(s.substitute_faculty_id) === numId)
+      .map((s) => ({
+        ...s,
+        originalFaculty: mock.users.find((u) => u.id === s.original_faculty_id) || null,
+      }));
+  }
+};
+
+export const getSubstitutionById = async (id) => {
+  const numId = Number(id);
+  if (!useDB()) return mock.substitutions.find((s) => s.id === numId) || null;
+  try {
+    const { rows } = await pool.query('SELECT * FROM substitutions WHERE id = $1', [numId]);
+    return rows[0] || null;
+  } catch (e) {
+    console.warn('[dataLayer] getSubstitutionById DB error, using mock:', e.message);
+    return mock.substitutions.find((s) => s.id === numId) || null;
+  }
+};
+
+export const createSubstitution = async ({ leave_id, original_faculty_id, substitute_faculty_id, class_id, date, status = 'assigned' }) => {
+  if (!useDB()) {
+    const rec = {
+      id: mock.nextId(mock.substitutions),
+      leave_id: Number(leave_id),
+      original_faculty_id: Number(original_faculty_id),
+      substitute_faculty_id: Number(substitute_faculty_id),
+      class_id,
+      date,
+      status,
+    };
+    mock.substitutions.push(rec);
+    return rec;
+  }
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO substitutions (leave_id, original_faculty_id, substitute_faculty_id, class_id, date, status)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [leave_id, original_faculty_id, substitute_faculty_id, class_id, date, status]
+    );
+    return rows[0];
+  } catch (e) {
+    console.warn('[dataLayer] createSubstitution DB error, using mock:', e.message);
+    const rec = {
+      id: mock.nextId(mock.substitutions),
+      leave_id: Number(leave_id),
+      original_faculty_id: Number(original_faculty_id),
+      substitute_faculty_id: Number(substitute_faculty_id),
+      class_id,
+      date,
+      status,
+    };
+    mock.substitutions.push(rec);
+    return rec;
+  }
+};
+
+export const updateSubstitutionStatus = async (id, status) => {
+  const numId = Number(id);
+  if (!useDB()) {
+    const rec = mock.substitutions.find((s) => s.id === numId);
+    if (!rec) return null;
+    rec.status = status;
+    return rec;
+  }
+  try {
+    const { rows } = await pool.query(
+      'UPDATE substitutions SET status = $1 WHERE id = $2 RETURNING *',
+      [status, numId]
+    );
+    return rows[0] || null;
+  } catch (e) {
+    console.warn('[dataLayer] updateSubstitutionStatus DB error, using mock:', e.message);
+    const rec = mock.substitutions.find((s) => s.id === numId);
+    if (!rec) return null;
+    rec.status = status;
+    return rec;
+  }
+};
+
+export const getDepartmentById = async (departmentId) => {
+  const numId = Number(departmentId);
+  if (!useDB()) return mock.departments.find((d) => d.id === numId) || null;
+  try {
+    const { rows } = await pool.query('SELECT * FROM departments WHERE id = $1', [numId]);
+    return rows[0] || null;
+  } catch (e) {
+    console.warn('[dataLayer] getDepartmentById DB error, using mock:', e.message);
+    return mock.departments.find((d) => d.id === numId) || null;
+  }
+};
+
+export const getUsersByDepartment = async (departmentId) => {
+  const numId = Number(departmentId);
+  if (!useDB()) return mock.users.filter((u) => Number(u.department_id) === numId);
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE department_id = $1 ORDER BY id', [numId]);
+    return rows;
+  } catch (e) {
+    console.warn('[dataLayer] getUsersByDepartment DB error, using mock:', e.message);
+    return mock.users.filter((u) => Number(u.department_id) === numId);
   }
 };
 

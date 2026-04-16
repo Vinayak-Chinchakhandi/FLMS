@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { usingMockData } from './db.js';
 
 dotenv.config();
 
@@ -16,16 +17,21 @@ import leaveRoutes from './routes/leave.js';
 import smartEvaluateRoutes from './routes/smartEvaluate.js';
 import simulateRoutes from './routes/simulate.js';
 import dashboardRoutes from './routes/dashboard.js';
+import authRoutes from './routes/auth.js';
+import facultyRoutes from './routes/faculty.js';
+import hodRoutes from './routes/hod.js';
+import substitutionRoutes from './routes/substitutions.js';
+import userRoutes from './routes/users.js';
+import { requireAuth } from './middleware/authMiddleware.js';
 
 console.log('[BOOT] All route modules loaded successfully');
 
 const app = express();
-const PORT = Number(process.env.PORT) || 8080;
+const PORT = Number(process.env.PORT) || 3000;
 console.log('[BOOT] Final PORT used:', PORT);
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-// Fully open for hackathon demo (Capacitor mobile + browser + Railway)
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'], credentials: true }));
 
 // ─── Body Parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }));
@@ -33,7 +39,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ─── Request Logger ───────────────────────────────────────────────────────────
 app.use((req, _res, next) => {
-  console.log(`[REQ] ${req.method} ${req.path}`);
+  console.log(`[REQ] ${req.method} ${req.originalUrl}`);
   next();
 });
 
@@ -43,9 +49,24 @@ app.get('/', (_req, res) => {
     project: 'Intelligent Faculty Leave Orchestrator (IFLO)',
     version: '1.0.0',
     status: 'running',
-    mode: process.env.DATABASE_URL ? 'postgresql' : 'mock-data',
+    mode: usingMockData ? 'mock-data' : 'postgresql',
     env: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/status', (_req, res) => {
+  res.json({
+    server: 'running',
+    mode: usingMockData ? 'mock-data' : 'postgresql',
+    port: PORT,
+    timestamp: new Date().toISOString(),
+    routes: [
+      '/api/leave',
+      '/api/smart-evaluate',
+      '/api/simulate',
+      '/api/dashboard',
+    ],
   });
 });
 
@@ -54,10 +75,15 @@ app.get('/health', (_req, res) => {
 });
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
-app.use('/api/leave', leaveRoutes);
-app.use('/api/smart-evaluate', smartEvaluateRoutes);
-app.use('/api/simulate', simulateRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/faculty', requireAuth, facultyRoutes);
+app.use('/api/hod', requireAuth, hodRoutes);
+app.use('/api/substitutions', requireAuth, substitutionRoutes);
+app.use('/api/leave', requireAuth, leaveRoutes);
+app.use('/api/smart-evaluate', requireAuth, smartEvaluateRoutes);
+app.use('/api/simulate', requireAuth, simulateRoutes);
+app.use('/api/dashboard', requireAuth, dashboardRoutes);
+app.use('/api/users', requireAuth, userRoutes);
 
 // ─── 404 ─────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
@@ -93,7 +119,8 @@ process.on('unhandledRejection', (reason) => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 IFLO Backend LISTENING on 0.0.0.0:${PORT}`);
-  console.log(`📋 Mode: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'In-memory mock data'}`);
+  console.log(`📋 Mode: ${usingMockData ? 'In-memory mock data' : 'PostgreSQL'}`);
+  if (usingMockData) console.log('⚠️  Running in MOCK DATA mode');
   console.log(`🌍 Env:  ${process.env.NODE_ENV || 'development'}\n`);
 });
 

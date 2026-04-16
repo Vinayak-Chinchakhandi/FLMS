@@ -3,9 +3,10 @@
 import {
   getLeaveRequests, getLeaveById as fetchLeaveById,
   createLeaveRequest, updateLeaveStatus as setLeaveStatus,
-  getUserById,
+  getUserById, getLeavesByDepartment, createSubstitution,
 } from '../utils/dataLayer.js';
 import { evaluateLeave } from '../services/smartEngine.js';
+import { runSimulation } from '../services/simulationService.js';
 
 // POST /api/leave/apply
 export const applyLeave = async (req, res) => {
@@ -76,6 +77,7 @@ export const getLeaveById = async (req, res) => {
 // PATCH /api/leave/:id/status
 export const updateLeaveStatus = async (req, res) => {
   try {
+    const leaveId = Number(req.params.id);
     const { status } = req.body;
     const allowed = ['approved', 'rejected', 'pending'];
     if (!allowed.includes(status)) {
@@ -84,10 +86,42 @@ export const updateLeaveStatus = async (req, res) => {
         message: `Status must be one of: ${allowed.join(', ')}`,
       });
     }
-    const leave = await setLeaveStatus(Number(req.params.id), status);
+
+    const leave = await fetchLeaveById(leaveId);
     if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
-    res.json({ success: true, message: `Status updated to "${status}"`, data: leave });
+    if (!req.user || req.user.role !== 'hod') {
+      return res.status(403).json({ success: false, message: 'Only HOD can change leave status' });
+    }
+    if (req.user.department_id !== Number(leave.department_id)) {
+      return res.status(403).json({ success: false, message: 'HOD can only approve leaves for their own department' });
+    }
+
+    const updatedLeave = await setLeaveStatus(leaveId, status);
+    if (!updatedLeave) return res.status(404).json({ success: false, message: 'Leave not found' });
+
+    let workflow = { leave: updatedLeave };
+    if (status === 'approved') {
+      const simulation = await runSimulation(Number(leave.faculty_id), leave.from_date, leave.to_date);
+      workflow.simulation = simulation;
+
+      for (const substitute of simulation.substitutions.filter((s) => s.status === 'ASSIGNED' && s.substitute?.id)) {
+        const created = await createSubstitution({
+          leave_id: leaveId,
+          original_faculty_id: Number(leave.faculty_id),
+          substitute_faculty_id: Number(substitute.substitute.id),
+          class_id: substitute.classId,
+          date: leave.from_date,
+          status: 'assigned',
+        });
+        console.log('[Substitution] Assigned', created);
+      }
+
+      workflow.message = 'Leave approved and substitution workflow started';
+    }
+
+    return res.json({ success: true, data: workflow });
   } catch (err) {
+    console.error('[updateLeaveStatus]', err);
     res.status(500).json({ success: false, message: err.message });
   }
 };

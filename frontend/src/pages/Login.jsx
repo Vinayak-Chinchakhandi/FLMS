@@ -1,34 +1,54 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { login as loginApi } from '../services/api';
 
-const MOCK_USERS = [
-  { id: 1, name: 'Dr. Arjun Mehta',   email: 'arjun@college.edu',  role: 'faculty',  faculty_id: 1 },
-  { id: 2, name: 'Prof. Sunita Rao',  email: 'sunita@college.edu', role: 'faculty',  faculty_id: 2 },
-  { id: 9, name: 'Admin User',        email: 'admin@college.edu',  role: 'admin',    faculty_id: null },
+const DEMO_ACCOUNTS = [
+  { email: 'arjun@college.edu',   role: 'faculty', label: 'Faculty'  },
+  { email: 'sunita@college.edu',  role: 'faculty', label: 'Faculty'  },
+  { email: 'rajan@college.edu',   role: 'faculty', label: 'Faculty (sub)' },
+  { email: 'nikhil@college.edu',  role: 'hod',     label: 'HOD — CS' },
+  { email: 'meera@college.edu',   role: 'hod',     label: 'HOD — Maths' },
 ];
 
 export default function Login() {
-  const navigate = useNavigate();
-  const [email, setEmail]       = useState('');
+  const navigate  = useNavigate();
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      const user = MOCK_USERS.find((u) => u.email === email);
-      if (user && password === 'password') {
-        localStorage.setItem('iflo_user', JSON.stringify(user));
-        navigate('/');
+    try {
+      const response = await loginApi({ email, password });
+      const { token, user } = response.data;
+      localStorage.setItem('iflo_token', token);
+      localStorage.setItem('iflo_user', JSON.stringify(user));
+
+      // Role-based redirect
+      if (user.role === 'hod') {
+        navigate('/hod', { replace: true });
       } else {
-        setError('Invalid email or password. Use password: "password"');
+        navigate('/faculty', { replace: true });
       }
+    } catch (err) {
+      console.error('[Login] Error', err);
+      setError(
+        err.response?.data?.message
+          ? err.response.data.message
+          : 'Unable to reach backend. Confirm backend is running at localhost:3000.'
+      );
+    } finally {
       setLoading(false);
-    }, 600);
+    }
+  };
+
+  const fillDemo = (demoEmail) => {
+    setEmail(demoEmail);
+    setPassword('password');
   };
 
   return (
@@ -52,6 +72,7 @@ export default function Login() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
               <input
+                id="login-email"
                 type="email"
                 required
                 placeholder="arjun@college.edu"
@@ -63,6 +84,7 @@ export default function Login() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
               <input
+                id="login-password"
                 type="password"
                 required
                 placeholder="••••••••"
@@ -79,6 +101,7 @@ export default function Login() {
             )}
 
             <button
+              id="login-submit"
               type="submit"
               disabled={loading}
               className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 mt-2"
@@ -89,14 +112,25 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Demo hint */}
-          <div className="mt-6 p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
-            <p className="text-xs text-indigo-700 font-medium mb-1">Demo Accounts</p>
-            {MOCK_USERS.map((u) => (
-              <p key={u.id} className="text-xs text-indigo-600 font-mono">
-                {u.email} / <span className="text-slate-500">password</span>
-              </p>
-            ))}
+          {/* Demo Accounts */}
+          <div className="mt-6 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+            <p className="text-xs text-indigo-700 font-bold mb-2 uppercase tracking-wider">Quick Access — Demo Accounts</p>
+            <div className="space-y-1.5">
+              {DEMO_ACCOUNTS.map((u) => (
+                <button
+                  key={u.email}
+                  type="button"
+                  onClick={() => fillDemo(u.email)}
+                  className="w-full flex items-center justify-between text-xs text-left px-3 py-2 rounded-lg hover:bg-indigo-100 transition-colors"
+                >
+                  <span className="font-mono text-indigo-800">{u.email}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${u.role === 'hod' ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                    {u.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-indigo-500 mt-2 text-center">All passwords: <span className="font-mono font-bold">password</span></p>
           </div>
         </div>
       </div>

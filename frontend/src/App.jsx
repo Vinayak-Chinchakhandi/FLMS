@@ -8,11 +8,37 @@ import DepartmentDetail from './pages/DepartmentDetail';
 import Settings         from './pages/Settings';
 import Login            from './pages/Login';
 
-function RequireAuth({ children }) {
-  const user = localStorage.getItem('iflo_user');
-  return user ? children : <Navigate to="/login" replace />;
+// ─── Auth helpers ─────────────────────────────────────────────────────────────
+function getUser() {
+  try {
+    return JSON.parse(localStorage.getItem('iflo_user') || '{}');
+  } catch {
+    return {};
+  }
 }
 
+function RequireAuth({ children }) {
+  const user  = localStorage.getItem('iflo_user');
+  const token = localStorage.getItem('iflo_token');
+  if (!user || !token) {
+    localStorage.removeItem('iflo_user');
+    localStorage.removeItem('iflo_token');
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
+function RequireRole({ role, children }) {
+  const user = getUser();
+  if (!user?.role) return <Navigate to="/login" replace />;
+  if (user.role !== role) {
+    // Redirect to their own home instead of forbidding
+    return <Navigate to={user.role === 'hod' ? '/hod' : '/faculty'} replace />;
+  }
+  return children;
+}
+
+// ─── App shell with sidebar ────────────────────────────────────────────────────
 function AppShell() {
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -20,11 +46,29 @@ function AppShell() {
       <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <Routes>
-            <Route path="/"            element={<Dashboard />} />
-            <Route path="/apply"       element={<ApplyLeave />} />
-            <Route path="/simulation"  element={<Simulation />} />
+            {/* Common entry — redirect by role */}
+            <Route path="/" element={<RoleRedirect />} />
+
+            {/* Faculty routes */}
+            <Route path="/faculty" element={
+              <RequireRole role="faculty"><Dashboard /></RequireRole>
+            } />
+            <Route path="/apply" element={
+              <RequireRole role="faculty"><ApplyLeave /></RequireRole>
+            } />
+
+            {/* HOD routes */}
+            <Route path="/hod" element={
+              <RequireRole role="hod"><Dashboard /></RequireRole>
+            } />
+            <Route path="/simulation" element={<Simulation />} />
+
+            {/* Shared */}
             <Route path="/departments" element={<DepartmentDetail />} />
             <Route path="/settings"    element={<Settings />} />
+
+            {/* Fallback */}
+            <Route path="*" element={<RoleRedirect />} />
           </Routes>
         </div>
       </main>
@@ -33,6 +77,14 @@ function AppShell() {
   );
 }
 
+function RoleRedirect() {
+  const user = getUser();
+  if (!user?.role) return <Navigate to="/login" replace />;
+  if (user.role === 'hod') return <Navigate to="/hod" replace />;
+  return <Navigate to="/faculty" replace />;
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <Router>

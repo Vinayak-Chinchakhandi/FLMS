@@ -2,21 +2,27 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarPlus, Activity, Building, Settings, LogOut,
+  ClipboardList,
 } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { name: 'Dashboard',  path: '/',            icon: LayoutDashboard },
-  { name: 'Apply Leave', path: '/apply',        icon: CalendarPlus },
-  { name: 'Simulation', path: '/simulation',   icon: Activity },
-  { name: 'Departments', path: '/departments', icon: Building },
-  { name: 'Settings',   path: '/settings',     icon: Settings },
+const FACULTY_NAV = [
+  { name: 'Dashboard',   path: '/faculty',  icon: LayoutDashboard },
+  { name: 'Apply Leave', path: '/apply',    icon: CalendarPlus },
+  { name: 'Settings',    path: '/settings', icon: Settings },
 ];
 
-function NavItem({ item, collapsed = false }) {
+const HOD_NAV = [
+  { name: 'HOD Dashboard', path: '/hod',        icon: LayoutDashboard },
+  { name: 'Simulation',    path: '/simulation',  icon: Activity },
+  { name: 'Departments',   path: '/departments', icon: Building },
+  { name: 'Settings',      path: '/settings',    icon: Settings },
+];
+
+function NavItem({ item }) {
   return (
     <NavLink
       to={item.path}
-      end={item.path === '/'}
+      end={item.path === '/faculty' || item.path === '/hod'}
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
           isActive
@@ -26,7 +32,7 @@ function NavItem({ item, collapsed = false }) {
       }
     >
       <item.icon className="w-5 h-5 shrink-0" />
-      {!collapsed && <span>{item.name}</span>}
+      <span>{item.name}</span>
     </NavLink>
   );
 }
@@ -35,9 +41,12 @@ function NavItem({ item, collapsed = false }) {
 export default function Sidebar() {
   const navigate = useNavigate();
   const user     = JSON.parse(localStorage.getItem('iflo_user') || '{}');
+  const isHod    = user.role === 'hod';
+  const navItems = isHod ? HOD_NAV : FACULTY_NAV;
 
   const handleLogout = () => {
     localStorage.removeItem('iflo_user');
+    localStorage.removeItem('iflo_token');
     navigate('/login');
   };
 
@@ -54,9 +63,18 @@ export default function Sidebar() {
         </div>
       </div>
 
+      {/* Role badge */}
+      <div className="px-5 py-3 border-b border-slate-100">
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold
+          ${isHod ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current" />
+          {isHod ? 'HOD View' : 'Faculty View'}
+        </span>
+      </div>
+
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavItem key={item.path} item={item} />
         ))}
       </nav>
@@ -64,7 +82,8 @@ export default function Sidebar() {
       {/* User Footer */}
       <div className="p-3 border-t border-slate-100 space-y-1">
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
-          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0
+            ${isHod ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>
             {user.name ? user.name.charAt(0) : 'U'}
           </div>
           <div className="flex-1 min-w-0">
@@ -86,14 +105,17 @@ export default function Sidebar() {
 
 /* ── Mobile Bottom Nav ───────────────────────────────────────────────────── */
 export function BottomNav() {
-  const mobileItems = NAV_ITEMS.slice(0, 5);
+  const user     = JSON.parse(localStorage.getItem('iflo_user') || '{}');
+  const isHod    = user.role === 'hod';
+  const navItems = (isHod ? HOD_NAV : FACULTY_NAV).slice(0, 4);
+
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 flex items-stretch">
-      {mobileItems.map((item) => (
+      {navItems.map((item) => (
         <NavLink
           key={item.path}
           to={item.path}
-          end={item.path === '/'}
+          end={item.path === '/faculty' || item.path === '/hod'}
           className={({ isActive }) =>
             `flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors ${
               isActive ? 'text-indigo-600' : 'text-slate-500'

@@ -1,23 +1,31 @@
+import crypto from 'crypto';
+
+const HASH_SALT = process.env.PASSWORD_SALT || 'iflo_local_salt_2026';
+const hash = (password) => crypto.scryptSync(password, HASH_SALT, 64).toString('hex');
+
 // ─── In-Memory Mock Data ─────────────────────────────────────────────────────
 // Used when PostgreSQL is not connected (demo / hackathon mode)
 
 export const departments = [
-  { id: 1, name: 'Computer Science' },
-  { id: 2, name: 'Mathematics' },
-  { id: 3, name: 'Electronics' },
-  { id: 4, name: 'Mechanical' },
+  { id: 1, name: 'Computer Science', hod_id: 9 },
+  { id: 2, name: 'Mathematics', hod_id: 10 },
+  { id: 3, name: 'Electronics', hod_id: 11 },
+  { id: 4, name: 'Mechanical', hod_id: 12 },
 ];
 
 export const users = [
-  { id: 1, name: 'Dr. Arjun Mehta',    email: 'arjun@college.edu',   role: 'faculty', department_id: 1 },
-  { id: 2, name: 'Prof. Sunita Rao',   email: 'sunita@college.edu',  role: 'faculty', department_id: 1 },
-  { id: 3, name: 'Dr. Kiran Desai',    email: 'kiran@college.edu',   role: 'faculty', department_id: 2 },
-  { id: 4, name: 'Prof. Meena Iyer',   email: 'meena@college.edu',   role: 'faculty', department_id: 3 },
-  { id: 5, name: 'Dr. Rajan Pillai',   email: 'rajan@college.edu',   role: 'faculty', department_id: 1 },
-  { id: 6, name: 'Prof. Divya Nair',   email: 'divya@college.edu',   role: 'faculty', department_id: 2 },
-  { id: 7, name: 'Dr. Sanjay Gupta',   email: 'sanjay@college.edu',  role: 'faculty', department_id: 4 },
-  { id: 8, name: 'Prof. Priya Kumar',  email: 'priya@college.edu',   role: 'faculty', department_id: 1 },
-  { id: 9, name: 'Admin User',         email: 'admin@college.edu',   role: 'admin',   department_id: 1 },
+  { id: 1, name: 'Dr. Arjun Mehta',    email: 'arjun@college.edu',  role: 'faculty', department_id: 1, skills: ['data structures', 'algorithms'], password: hash('password') },
+  { id: 2, name: 'Prof. Sunita Rao',   email: 'sunita@college.edu', role: 'faculty', department_id: 1, skills: ['databases', 'system design'], password: hash('password') },
+  { id: 3, name: 'Dr. Kiran Desai',    email: 'kiran@college.edu',  role: 'faculty', department_id: 2, skills: ['calculus', 'linear algebra'], password: hash('password') },
+  { id: 4, name: 'Prof. Meena Iyer',   email: 'meena@college.edu',  role: 'faculty', department_id: 3, skills: ['digital electronics', 'signals'], password: hash('password') },
+  { id: 5, name: 'Dr. Rajan Pillai',   email: 'rajan@college.edu',  role: 'faculty', department_id: 1, skills: ['algorithms', 'operating systems'], password: hash('password') },
+  { id: 6, name: 'Prof. Divya Nair',   email: 'divya@college.edu',  role: 'faculty', department_id: 2, skills: ['probability', 'calculus'], password: hash('password') },
+  { id: 7, name: 'Dr. Sanjay Gupta',   email: 'sanjay@college.edu', role: 'faculty', department_id: 4, skills: ['thermodynamics', 'fluid mechanics'], password: hash('password') },
+  { id: 8, name: 'Prof. Priya Kumar',  email: 'priya@college.edu',  role: 'faculty', department_id: 1, skills: ['operating systems', 'computer networks'], password: hash('password') },
+  { id: 9, name: 'Dr. Nikhil Verma',   email: 'nikhil@college.edu', role: 'hod',     department_id: 1, skills: ['academic leadership'], password: hash('password') },
+  { id: 10, name: 'Dr. Meera Joshi',    email: 'meera@college.edu',  role: 'hod',     department_id: 2, skills: ['academic leadership'], password: hash('password') },
+  { id: 11, name: 'Dr. Rohit Sharma',   email: 'rohit@college.edu',  role: 'hod',     department_id: 3, skills: ['academic leadership'], password: hash('password') },
+  { id: 12, name: 'Dr. Anjali Gupta',   email: 'anjali@college.edu',  role: 'hod',     department_id: 4, skills: ['academic leadership'], password: hash('password') },
 ];
 
 export const timetable = [
@@ -58,29 +66,55 @@ export const timetable = [
 
 export let leaveRequests = [
   {
-    id: 1, faculty_id: 1, from_date: '2025-04-10', to_date: '2025-04-11',
-    reason: 'Medical appointment', status: 'approved', impact_score: 4.2,
+    id: 1,
+    faculty_id: 1,
+    department_id: 1,
+    from_date: '2025-04-10',
+    to_date: '2025-04-11',
+    reason: 'Medical appointment',
+    status: 'approved',
+    impact_score: 4.2,
   },
   {
-    id: 2, faculty_id: 2, from_date: '2025-04-14', to_date: '2025-04-14',
-    reason: 'Family function', status: 'pending', impact_score: 2.8,
+    id: 2,
+    faculty_id: 2,
+    department_id: 1,
+    from_date: '2025-04-14',
+    to_date: '2025-04-14',
+    reason: 'Family function',
+    status: 'pending',
+    impact_score: 2.8,
   },
   {
-    id: 3, faculty_id: 3, from_date: '2025-04-17', to_date: '2025-04-18',
-    reason: 'Conference', status: 'approved', impact_score: 3.5,
+    id: 3,
+    faculty_id: 3,
+    department_id: 2,
+    from_date: '2025-04-17',
+    to_date: '2025-04-18',
+    reason: 'Conference',
+    status: 'approved',
+    impact_score: 3.5,
   },
 ];
 
 export let substitutions = [
   {
-    id: 1, leave_id: 1, original_faculty_id: 1,
-    substitute_faculty_id: 5, class_id: 'CS-301', status: 'confirmed',
+    id: 1,
+    leave_id: 1,
+    original_faculty_id: 1,
+    substitute_faculty_id: 5,
+    class_id: 'CS-301',
+    date: '2025-04-10',
+    status: 'accepted',
   },
 ];
 
 export let impactLogs = [
   {
-    leave_id: 1, affected_classes: 2, unresolved_classes: 0, overload_score: 1.2,
+    leave_id: 1,
+    affected_classes: 2,
+    unresolved_classes: 0,
+    overload_score: 1.2,
   },
 ];
 

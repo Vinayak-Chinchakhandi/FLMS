@@ -1,22 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { evaluateLeave, applyLeave } from '../services/api';
 import {
   Calendar, FileText, CheckCircle, AlertTriangle, ShieldAlert,
-  User, Loader2, Sparkles,
+  Loader2, Sparkles, Lock,
 } from 'lucide-react';
-
-const FACULTY_OPTIONS = [
-  { id: 1, label: 'Dr. Arjun Mehta',   dept: 'Computer Science' },
-  { id: 2, label: 'Prof. Sunita Rao',  dept: 'Computer Science' },
-  { id: 3, label: 'Dr. Kiran Desai',   dept: 'Mathematics' },
-  { id: 7, label: 'Dr. Sanjay Gupta',  dept: 'Mechanical' },
-];
 
 function ScoreMeter({ score }) {
   const color =
     score >= 75 ? '#10b981' :
     score >= 50 ? '#f59e0b' : '#ef4444';
-
   const circumference = 2 * Math.PI * 40;
   const offset = circumference - (circumference * score) / 100;
 
@@ -57,15 +50,24 @@ function SubstituteBar({ score }) {
 }
 
 export default function ApplyLeave() {
-  const loggedIn = JSON.parse(localStorage.getItem('iflo_user') || '{}');
-  const defaultId = loggedIn.faculty_id || 1;
+  const navigate  = useNavigate();
+  const user      = JSON.parse(localStorage.getItem('iflo_user') || '{}');
+  const role      = user.role;
 
-  const [formData, setFormData] = useState({
-    faculty_id: defaultId,
-    from_date:  '',
-    to_date:    '',
-    reason:     '',
-  });
+  // Guard: faculty only
+  if (role !== 'faculty') {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Lock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="font-bold text-slate-500">Faculty only</p>
+          <p className="text-sm text-slate-400">Only faculty members can apply for leave.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const [formData, setFormData]   = useState({ from_date: '', to_date: '', reason: '' });
   const [loading,   setLoading]   = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result,    setResult]    = useState(null);
@@ -79,11 +81,11 @@ export default function ApplyLeave() {
     setResult(null);
     setSubmitted(false);
     try {
-      const res = await evaluateLeave({ ...formData, faculty_id: Number(formData.faculty_id) });
+      const res = await evaluateLeave({ ...formData, faculty_id: user.id });
       setResult(res.data.data);
     } catch (err) {
       console.error(err);
-      alert('Error calling evaluate API. Is the backend running?');
+      alert(err.response?.data?.message || 'Error calling evaluate API. Is the backend running?');
     } finally {
       setLoading(false);
     }
@@ -92,10 +94,10 @@ export default function ApplyLeave() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      await applyLeave({ ...formData, faculty_id: Number(formData.faculty_id) });
+      await applyLeave({ ...formData, faculty_id: user.id });
       setSubmitted(true);
     } catch (err) {
-      alert('Error submitting leave request.');
+      alert(err.response?.data?.message || 'Error submitting leave request.');
     } finally {
       setSubmitting(false);
     }
@@ -111,7 +113,7 @@ export default function ApplyLeave() {
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-6 text-white shadow-md">
         <h1 className="text-2xl font-black tracking-tight">Apply for Leave</h1>
-        <p className="text-indigo-200 mt-0.5 text-sm">AI-powered evaluation before submission</p>
+        <p className="text-indigo-200 mt-0.5 text-sm">AI-powered evaluation before submission · {user.name}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -121,20 +123,15 @@ export default function ApplyLeave() {
           <h2 className="font-bold text-slate-900">Leave Details</h2>
 
           <form onSubmit={handleEvaluate} className="space-y-4">
-            {/* Faculty */}
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-                <User className="w-3.5 h-3.5 text-slate-400" /> Faculty
-              </label>
-              <select
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={formData.faculty_id}
-                onChange={set('faculty_id')}
-              >
-                {FACULTY_OPTIONS.map((f) => (
-                  <option key={f.id} value={f.id}>{f.label} ({f.dept})</option>
-                ))}
-              </select>
+            {/* Faculty info — read-only */}
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
+                {user.name?.charAt(0) || 'F'}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{user.name}</p>
+                <p className="text-xs text-slate-500 capitalize">{user.role} · ID: {user.id}</p>
+              </div>
             </div>
 
             {/* Dates */}
@@ -144,6 +141,7 @@ export default function ApplyLeave() {
                   <Calendar className="w-3.5 h-3.5 text-slate-400" /> From
                 </label>
                 <input
+                  id="leave-from-date"
                   type="date" required
                   className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={formData.from_date}
@@ -155,6 +153,7 @@ export default function ApplyLeave() {
                   <Calendar className="w-3.5 h-3.5 text-slate-400" /> To
                 </label>
                 <input
+                  id="leave-to-date"
                   type="date" required
                   className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={formData.to_date}
@@ -169,6 +168,7 @@ export default function ApplyLeave() {
                 <FileText className="w-3.5 h-3.5 text-slate-400" /> Reason
               </label>
               <textarea
+                id="leave-reason"
                 rows={3}
                 required
                 placeholder="Describe the reason for leave..."
@@ -179,6 +179,7 @@ export default function ApplyLeave() {
             </div>
 
             <button
+              id="evaluate-btn"
               type="submit"
               disabled={loading}
               className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-200"
@@ -231,7 +232,7 @@ export default function ApplyLeave() {
               )}
 
               {/* Suggested Substitutes */}
-              {result.suggestedSubstitutes.length > 0 && (
+              {result.suggestedSubstitutes?.length > 0 && (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                   <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
                     <h4 className="text-sm font-bold text-slate-800">Suggested Substitutes</h4>
@@ -256,6 +257,7 @@ export default function ApplyLeave() {
               {/* Submit button */}
               {!submitted ? (
                 <button
+                  id="submit-leave-btn"
                   onClick={handleSubmit}
                   disabled={submitting || result.recommendation === 'REJECT'}
                   className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-100"
@@ -266,7 +268,13 @@ export default function ApplyLeave() {
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
                   <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-1" />
                   <p className="font-bold text-emerald-700">Request Submitted!</p>
-                  <p className="text-sm text-emerald-600">Your leave is pending admin review.</p>
+                  <p className="text-sm text-emerald-600">Your leave is pending HOD review.</p>
+                  <button
+                    onClick={() => navigate('/faculty')}
+                    className="mt-3 text-xs text-indigo-600 underline"
+                  >
+                    Back to Dashboard
+                  </button>
                 </div>
               )}
             </div>

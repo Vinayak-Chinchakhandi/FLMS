@@ -18,7 +18,9 @@ if (process.env.DATABASE_URL) {
   try {
     _pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false }, // Always enable SSL — Railway requires it
+      ssl: process.env.DB_SSL === 'true'
+        ? { rejectUnauthorized: false }
+        : false,
       connectionTimeoutMillis: 5000,
       idleTimeoutMillis: 30000,
       max: 10,

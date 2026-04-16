@@ -1,38 +1,73 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, Bell, Shield, Moon, ChevronRight } from 'lucide-react';
+import { LogOut, User, Sparkles, X, Plus, Loader2, CheckCircle } from 'lucide-react';
+import { getMe, updateSkills } from '../services/api';
 
 export default function Settings() {
-  const navigate  = useNavigate();
-  const user      = JSON.parse(localStorage.getItem('iflo_user') || '{}');
+  const navigate = useNavigate();
+  const user     = JSON.parse(localStorage.getItem('iflo_user') || '{}');
+
+  const [skills,        setSkills]        = useState([]);
+  const [newSkill,      setNewSkill]      = useState('');
+  const [skillsLoading, setSkillsLoading] = useState(true);
+  const [skillsSaving,  setSkillsSaving]  = useState(false);
+  const [skillsSaved,   setSkillsSaved]   = useState(false);
+  const [skillsError,   setSkillsError]   = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getMe();
+        setSkills(res.data.data.skills || []);
+      } catch (e) {
+        console.error('[Settings] Failed to load profile', e);
+        // Fallback to cached user data if available
+        setSkills([]);
+      } finally {
+        setSkillsLoading(false);
+      }
+    })();
+  }, []);
+
+  const addSkill = () => {
+    const trimmed = newSkill.trim().toLowerCase();
+    if (!trimmed || skills.includes(trimmed)) return;
+    setSkills((prev) => [...prev, trimmed]);
+    setNewSkill('');
+    setSkillsSaved(false);
+  };
+
+  const removeSkill = (skill) => {
+    setSkills((prev) => prev.filter((s) => s !== skill));
+    setSkillsSaved(false);
+  };
+
+  const handleSaveSkills = async () => {
+    setSkillsSaving(true);
+    setSkillsError('');
+    setSkillsSaved(false);
+    try {
+      await updateSkills(skills);
+      setSkillsSaved(true);
+      setTimeout(() => setSkillsSaved(false), 3000);
+    } catch (e) {
+      setSkillsError(e.response?.data?.message || 'Failed to save skills.');
+    } finally {
+      setSkillsSaving(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('iflo_user');
+    localStorage.removeItem('iflo_token');
     navigate('/login');
   };
-
-  const settingsGroups = [
-    {
-      title: 'Account',
-      items: [
-        { icon: User,   label: 'Edit Profile',       desc: 'Update your name and email' },
-        { icon: Shield, label: 'Change Password',     desc: 'Security & authentication' },
-        { icon: Bell,   label: 'Notifications',       desc: 'Email and push alerts' },
-      ],
-    },
-    {
-      title: 'Preferences',
-      items: [
-        { icon: Moon, label: 'Appearance', desc: 'Light / dark mode' },
-      ],
-    },
-  ];
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-        <p className="text-slate-500 mt-1 text-sm">Manage your account preferences</p>
+        <p className="text-slate-500 mt-1 text-sm">Manage your account and preferences</p>
       </div>
 
       {/* Profile Card */}
@@ -51,31 +86,87 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Options */}
-      {settingsGroups.map((group) => (
-        <div key={group.title} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-100">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{group.title}</h3>
+      {/* Skills Editor — shown for faculty only (useful for substitute engine) */}
+      {user.role === 'faculty' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-indigo-500" />
+            <h2 className="text-sm font-bold text-slate-800">Teaching Skills</h2>
+            <span className="ml-auto text-xs text-slate-400">Used for substitute matching</span>
           </div>
-          <div className="divide-y divide-slate-100">
-            {group.items.map((item) => (
-              <button
-                key={item.label}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
-              >
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                  <item.icon className="w-4 h-4 text-indigo-600" />
+
+          <div className="p-5 space-y-4">
+            {skillsLoading ? (
+              <div className="flex items-center justify-center h-16">
+                <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+              </div>
+            ) : (
+              <>
+                {/* Current skills */}
+                <div className="flex flex-wrap gap-2 min-h-10">
+                  {skills.length === 0 ? (
+                    <p className="text-sm text-slate-400 italic">No skills added yet.</p>
+                  ) : (
+                    skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-100 text-indigo-800 rounded-full text-xs font-semibold"
+                      >
+                        {skill}
+                        <button
+                          type="button"
+                          onClick={() => removeSkill(skill)}
+                          className="ml-0.5 hover:text-indigo-500 text-indigo-400 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900">{item.label}</p>
-                  <p className="text-xs text-slate-500">{item.desc}</p>
+
+                {/* Add skill input */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. machine learning, calculus..."
+                    value={newSkill}
+                    onChange={(e) => setNewSkill(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
+                    className="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={addSkill}
+                    className="px-3.5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center gap-1.5 text-sm font-semibold"
+                  >
+                    <Plus className="w-4 h-4" /> Add
+                  </button>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-              </button>
-            ))}
+
+                {skillsError && (
+                  <p className="text-sm text-red-600">{skillsError}</p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={skillsSaving}
+                  onClick={handleSaveSkills}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-70"
+                >
+                  {skillsSaving ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                  ) : skillsSaved ? (
+                    <><CheckCircle className="w-4 h-4" /> Saved!</>
+                  ) : (
+                    'Save Skills'
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
-      ))}
+      )}
 
       {/* Logout */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">

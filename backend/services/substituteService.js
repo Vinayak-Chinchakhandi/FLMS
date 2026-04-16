@@ -23,6 +23,13 @@ export const suggestSubstitutes = async (originalFacultyId, affectedClasses, fro
       const matchCount   = subjects.filter((s) => taughtSubjects.includes(s)).length;
       const subjectMatch = subjects.length ? matchCount / subjects.length : 0;
 
+      // Skill match boosts subject alignment
+      const skillMatch = subjects.length && Array.isArray(faculty.skills)
+        ? subjects.filter((subject) =>
+            faculty.skills.some((skill) => subject.toLowerCase().includes(skill.toLowerCase()))
+          ).length / subjects.length
+        : 0;
+
       // Availability
       const available      = await isFacultyAvailable(faculty.id, fromDate, toDate);
       const availabilityVal = available ? 1 : 0;
@@ -32,7 +39,8 @@ export const suggestSubstitutes = async (originalFacultyId, affectedClasses, fro
       const workloadBalance = 1 - currentLoad / maxLoad;
 
       const score =
-        subjectMatch    * 0.4 +
+        subjectMatch    * 0.35 +
+        skillMatch      * 0.05 +
         availabilityVal * 0.3 +
         workloadBalance * 0.3;
 
@@ -43,6 +51,7 @@ export const suggestSubstitutes = async (originalFacultyId, affectedClasses, fro
         department:   faculty.department_id,
         score:        parseFloat(score.toFixed(3)),
         subjectMatch: parseFloat(subjectMatch.toFixed(3)),
+        skillMatch:   parseFloat(skillMatch.toFixed(3)),
         available,
         currentLoad,
       };
