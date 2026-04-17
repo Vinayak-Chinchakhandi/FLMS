@@ -4,9 +4,9 @@
 
 import pool from '../db.js';
 import * as mock from './mockData.js';
+import { usingMockData } from '../db.js';
 
-// Helper: safe check at call-time (pool may become null after failed ping)
-const useDB = () => pool !== null;
+const useDB = () => !usingMockData;
 
 // ─── Internal normalizer ──────────────────────────────────────────────────────
 // pg returns DATE columns as JS Date objects. Convert to 'YYYY-MM-DD' strings
