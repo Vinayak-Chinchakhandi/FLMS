@@ -27,11 +27,13 @@ import { requireAuth } from './middleware/authMiddleware.js';
 console.log('[BOOT] All route modules loaded successfully');
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+// const PORT = Number(process.env.PORT) || 3000;
+const PORT = process.env.PORT || 3000;
 console.log('[BOOT] Final PORT used:', PORT);
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'], credentials: true }));
+// app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'], credentials: true }));
+app.use(cors({ origin: true, credentials: true }));
 
 // ─── Body Parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }));

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // VITE_API_BASE_URL is set in .env (dev) or .env.production (prod build).
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://flms.up.railway.app/api';
 
 export const api = axios.create({
   baseURL: BASE_URL,
