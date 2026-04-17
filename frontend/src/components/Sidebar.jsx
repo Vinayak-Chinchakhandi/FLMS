@@ -2,7 +2,6 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarPlus, Activity, Building, Settings, LogOut,
-  ClipboardList,
 } from 'lucide-react';
 
 const FACULTY_NAV = [
@@ -13,6 +12,7 @@ const FACULTY_NAV = [
 
 const HOD_NAV = [
   { name: 'HOD Dashboard', path: '/hod',        icon: LayoutDashboard },
+  { name: 'Apply Leave',   path: '/apply',       icon: CalendarPlus },
   { name: 'Simulation',    path: '/simulation',  icon: Activity },
   { name: 'Departments',   path: '/departments', icon: Building },
   { name: 'Settings',      path: '/settings',    icon: Settings },
@@ -39,10 +39,11 @@ function NavItem({ item }) {
 
 /* ── Desktop Sidebar ─────────────────────────────────────────────────────── */
 export default function Sidebar() {
-  const navigate = useNavigate();
-  const user     = JSON.parse(localStorage.getItem('iflo_user') || '{}');
-  const isHod    = user.role === 'hod';
-  const navItems = isHod ? HOD_NAV : FACULTY_NAV;
+  const navigate    = useNavigate();
+  const user        = JSON.parse(localStorage.getItem('iflo_user') || '{}');
+  const isActingHod = user.role !== 'hod' && user.acting_role === 'hod';
+  const isHod       = user.role === 'hod' || user.acting_role === 'hod';
+  const navItems    = isHod ? HOD_NAV : FACULTY_NAV;
 
   const handleLogout = () => {
     localStorage.removeItem('iflo_user');
@@ -64,12 +65,17 @@ export default function Sidebar() {
       </div>
 
       {/* Role badge */}
-      <div className="px-5 py-3 border-b border-slate-100">
+      <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2 flex-wrap">
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold
           ${isHod ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>
           <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          {isHod ? 'HOD View' : 'Faculty View'}
+          {isActingHod ? 'Acting HOD' : isHod ? 'HOD View' : 'Faculty View'}
         </span>
+        {isActingHod && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+            TEMPORARY
+          </span>
+        )}
       </div>
 
       {/* Nav */}
@@ -88,7 +94,9 @@ export default function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-slate-900 truncate">{user.name || 'User'}</p>
-            <p className="text-xs text-slate-500 capitalize">{user.role || 'faculty'}</p>
+            <p className="text-xs text-slate-500 capitalize">
+              {isActingHod ? 'Acting HOD (Temporary)' : user.role || 'faculty'}
+            </p>
           </div>
         </div>
         <button
@@ -106,8 +114,8 @@ export default function Sidebar() {
 /* ── Mobile Bottom Nav ───────────────────────────────────────────────────── */
 export function BottomNav() {
   const user     = JSON.parse(localStorage.getItem('iflo_user') || '{}');
-  const isHod    = user.role === 'hod';
-  const navItems = (isHod ? HOD_NAV : FACULTY_NAV).slice(0, 4);
+  const isHod    = user.role === 'hod' || user.acting_role === 'hod';
+  const navItems = (isHod ? HOD_NAV : FACULTY_NAV);
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 flex items-stretch">

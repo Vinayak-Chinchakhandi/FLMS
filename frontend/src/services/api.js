@@ -40,7 +40,7 @@ export const login = (data) => api.post('/auth/login', data);
 
 // ─── Leave ───────────────────────────────────────────────────────────────────
 export const applyLeave = (data) => api.post('/leave/apply', data);
-export const getLeaves = () => api.get('/leave');
+export const getLeaves  = ()     => api.get('/leave');
 export const updateLeaveStatus = (id, status) => api.patch(`/leave/${id}/status`, { status });
 
 // ─── Smart / Simulation ───────────────────────────────────────────────────────
@@ -48,15 +48,20 @@ export const evaluateLeave = (data) => api.post('/smart-evaluate', data);
 export const runSimulation = (data) => api.post('/simulate', data);
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-export const getHeatmap = () => api.get('/dashboard/heatmap');
-export const getLeaderboard = () => api.get('/dashboard/leaderboard');
-export const getFacultyDashboard = (id) => api.get(`/faculty/dashboard/${id}`);
-export const getHodDashboard = (departmentId) => api.get(`/hod/dashboard/${departmentId}`);
+export const getHeatmap       = ()           => api.get('/dashboard/heatmap');
+export const getLeaderboard   = ()           => api.get('/dashboard/leaderboard');
+export const getFacultyDashboard = (id)      => api.get(`/faculty/dashboard/${id}`);
+export const getHodDashboard  = (deptId)     => api.get(`/hod/dashboard/${deptId}`);
 
 // ─── Substitutions ───────────────────────────────────────────────────────────
-export const getSubstitutions = (facultyId) => api.get(`/substitutions/${facultyId}`);
-export const acceptSubstitution = (id) => api.patch(`/substitutions/${id}`, { status: 'accepted' });
+export const getSubstitutions     = (facultyId) => api.get(`/substitutions/${facultyId}`);
+export const acceptSubstitution   = (id)        => api.patch(`/substitutions/${id}`, { status: 'accepted' });
+export const getSubstitutionStatus = (leaveId)  => api.get(`/hod/substitution-status/${leaveId}`);
+
+// ─── HOD Acting ──────────────────────────────────────────────────────────────
+export const getActingHod = (deptId) => api.get(`/hod/acting/${deptId}`);
 
 // ─── Users / Profile ─────────────────────────────────────────────────────────
-export const getMe = () => api.get('/users/me');
-export const updateSkills = (skills) => api.patch('/users/me/skills', { skills });
+export const getMe         = ()          => api.get('/users/me');
+export const updateSkills  = (skills)    => api.patch('/users/me/skills', { skills });
+export const getLeaveSummary = (userId)  => api.get(`/users/leave-summary/${userId}`);

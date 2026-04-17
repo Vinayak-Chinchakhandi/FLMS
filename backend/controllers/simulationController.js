@@ -14,8 +14,8 @@ export const runSimulation = async (req, res) => {
     }
 
     const faculty = await getUserById(Number(faculty_id));
-    if (!faculty || faculty.role !== 'faculty') {
-      return res.status(404).json({ success: false, message: 'Faculty not found' });
+    if (!faculty) {
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     const result = await simulate(Number(faculty_id), from_date, to_date);

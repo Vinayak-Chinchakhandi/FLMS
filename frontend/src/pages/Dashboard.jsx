@@ -4,24 +4,31 @@ import {
 } from 'recharts';
 import {
   Users, Clock, Activity, CheckCircle, AlertTriangle, TrendingUp,
-  XCircle, Play, BookOpen, Calendar,
+  XCircle, Play, BookOpen, Calendar, Zap, Award,
 } from 'lucide-react';
 import {
   getHeatmap, getLeaderboard, getFacultyDashboard, getHodDashboard,
-  acceptSubstitution, updateLeaveStatus, runSimulation,
+  acceptSubstitution, updateLeaveStatus, runSimulation, getSubstitutionStatus,
 } from '../services/api';
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
-function PageHeader({ title, subtitle }) {
+function PageHeader({ title, subtitle, badge }) {
   return (
     <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-6 text-white shadow-md mb-6">
-      <h1 className="text-2xl font-black tracking-tight">{title}</h1>
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-black tracking-tight">{title}</h1>
+        {badge && (
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-400 text-amber-900">
+            {badge}
+          </span>
+        )}
+      </div>
       <p className="text-indigo-200 mt-0.5 text-sm">{subtitle}</p>
     </div>
   );
 }
 
-function StatCard({ title, value, icon: Icon, iconBg, iconColor, badge, badgeColor }) {
+function StatCard({ title, value, icon: Icon, iconBg, iconColor, badge, badgeColor, subtext }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -37,6 +44,36 @@ function StatCard({ title, value, icon: Icon, iconBg, iconColor, badge, badgeCol
             {badge}
           </span>
         )}
+      </div>
+      {subtext && <p className="text-xs text-slate-400">{subtext}</p>}
+    </div>
+  );
+}
+
+/* ─── Leave Balance Card ──────────────────────────────────────────────────── */
+function LeaveBalanceCard({ taken, max }) {
+  const remaining = Math.max(0, max - taken);
+  const pct       = Math.min(100, Math.round((taken / max) * 100));
+  const barColor  = pct >= 100 ? 'bg-red-500' : pct >= 75 ? 'bg-amber-500' : 'bg-emerald-500';
+  const textColor = pct >= 100 ? 'text-red-600' : pct >= 75 ? 'text-amber-600' : 'text-emerald-700';
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Leave Balance</p>
+        <div className="w-9 h-9 rounded-xl bg-teal-50 flex items-center justify-center">
+          <Award className="w-4 h-4 text-teal-600" />
+        </div>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className={`text-3xl font-black ${textColor}`}>{remaining}</span>
+        <span className="text-sm text-slate-400 font-medium">/ {max} remaining</span>
+      </div>
+      <div className="space-y-1">
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct}%` }} />
+        </div>
+        <p className="text-xs text-slate-400">{taken} used this year</p>
       </div>
     </div>
   );
@@ -56,11 +93,45 @@ function StatusBadge({ status }) {
     status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
     status === 'pending'  ? 'bg-amber-100 text-amber-700' :
     status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
+    status === 'assigned' ? 'bg-blue-100 text-blue-700' :
                             'bg-rose-100 text-rose-700';
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
       {status}
     </span>
+  );
+}
+
+/* ─── Substitution Progress Bar ─────────────────────────────────────────── */
+function SubProgress({ leaveId }) {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    getSubstitutionStatus(leaveId)
+      .then((r) => setData(r.data.data))
+      .catch(() => {});
+  }, [leaveId]);
+
+  if (!data || data.total === 0) return null;
+
+  const pct = data.progress;
+  const barColor = pct === 100 ? 'bg-emerald-500' : pct > 50 ? 'bg-amber-400' : 'bg-blue-500';
+
+  return (
+    <div className="mt-2 space-y-1 border-t border-slate-100 pt-2">
+      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+        <span>Substitution Progress</span>
+        <span className="text-slate-700">{data.accepted}/{data.total} accepted</span>
+      </div>
+      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="flex gap-3 text-[10px] text-slate-400">
+        <span className="text-emerald-600 font-semibold">✓ {data.accepted} accepted</span>
+        <span className="text-blue-600 font-semibold">⏳ {data.pending} pending</span>
+        {data.rejected > 0 && <span className="text-red-500 font-semibold">✗ {data.rejected} rejected</span>}
+      </div>
+    </div>
   );
 }
 
@@ -123,12 +194,7 @@ function SimulationModal({ leave, onClose }) {
               <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
             </div>
           )}
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
-              {error}
-            </div>
-          )}
+          {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">{error}</div>}
 
           {result && (
             <div className="space-y-4">
@@ -146,9 +212,7 @@ function SimulationModal({ leave, onClose }) {
                   <p className="text-xs text-red-600 font-medium">Unresolved</p>
                 </div>
               </div>
-
               <p className="text-sm text-slate-600 bg-slate-50 rounded-xl p-3">{result.summary}</p>
-
               {result.substitutions.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Proposed Substitutions</p>
@@ -184,30 +248,32 @@ function SimulationModal({ leave, onClose }) {
 
 /* ─── Main Dashboard Component ────────────────────────────────────────────── */
 export default function Dashboard() {
-  const [heatmapData,  setHeatmapData]  = useState([]);
-  const [summary,      setSummary]      = useState({ totalLeaves: 0, pendingLeaves: 0, avgImpact: 0 });
-  const [leaderboard,  setLeaderboard]  = useState([]);
-  const [facultyData,  setFacultyData]  = useState(null);
-  const [hodData,      setHodData]      = useState(null);
+  const [heatmapData,   setHeatmapData]   = useState([]);
+  const [summary,       setSummary]       = useState({ totalLeaves: 0, pendingLeaves: 0, avgImpact: 0 });
+  const [leaderboard,   setLeaderboard]   = useState([]);
+  const [facultyData,   setFacultyData]   = useState(null);
+  const [hodData,       setHodData]       = useState(null);
   const [actionLoading, setActionLoading] = useState({});
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState('');
-  const [simLeave,     setSimLeave]     = useState(null); // for simulation modal
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
+  const [simLeave,      setSimLeave]      = useState(null);
 
-  const user   = JSON.parse(localStorage.getItem('iflo_user') || '{}');
-  const role   = user.role || 'guest';
+  const rawUser   = JSON.parse(localStorage.getItem('iflo_user') || '{}');
+  const isActingHod = rawUser.role !== 'hod' && rawUser.acting_role === 'hod';
+  const role      = (rawUser.role === 'hod' || rawUser.acting_role === 'hod') ? 'hod' : rawUser.role || 'guest';
   const isFaculty = role === 'faculty';
   const isHod     = role === 'hod';
   const showGlobal = !isFaculty && !isHod;
+  const user = { ...rawUser, role };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      if (role === 'faculty' && user.id) {
-        const res = await getFacultyDashboard(user.id);
+      if (isFaculty && rawUser.id) {
+        const res = await getFacultyDashboard(rawUser.id);
         setFacultyData(res.data.data);
-      } else if (role === 'hod' && user.department_id) {
-        const res = await getHodDashboard(user.department_id);
+      } else if (isHod && rawUser.department_id) {
+        const res = await getHodDashboard(rawUser.department_id);
         setHodData(res.data.data);
       } else {
         const [hRes, lRes] = await Promise.all([getHeatmap(), getLeaderboard()]);
@@ -221,7 +287,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [role, user.id, user.department_id]);
+  }, [isFaculty, isHod, rawUser.id, rawUser.department_id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -237,6 +303,17 @@ export default function Dashboard() {
           substitutions: prev.substitutions.map((item) =>
             item.id === substitutionId ? { ...item, status: 'accepted' } : item
           ),
+          // Move to extraClasses
+          extraClasses: [
+            ...(prev.extraClasses || []),
+            prev.substitutions.find((s) => s.id === substitutionId) || {},
+          ],
+          summary: {
+            ...prev.summary,
+            assignedSubstitutions: prev.summary.assignedSubstitutions - 1,
+            acceptedSubstitutions: prev.summary.acceptedSubstitutions + 1,
+            extraLoad: (prev.summary.extraLoad || 0) + 1,
+          },
         };
       });
     } catch (err) {
@@ -252,8 +329,7 @@ export default function Dashboard() {
     setActionLoading((p) => ({ ...p, [leaveId]: status }));
     try {
       await updateLeaveStatus(leaveId, status);
-      // Re-fetch HOD data to show updated state
-      const res = await getHodDashboard(user.department_id);
+      const res = await getHodDashboard(rawUser.department_id);
       setHodData(res.data.data);
     } catch (err) {
       const msg = err.response?.data?.message || err.message;
@@ -274,7 +350,7 @@ export default function Dashboard() {
       }))
     : [];
 
-  const headerTitle    = isFaculty ? 'Faculty Dashboard' : isHod ? 'HOD Dashboard' : 'Dashboard Overview';
+  const headerTitle    = isFaculty ? 'Faculty Dashboard' : isHod ? (isActingHod ? 'Acting HOD Dashboard' : 'HOD Dashboard') : 'Dashboard Overview';
   const headerSubtitle = isFaculty
     ? 'Track your leave requests, substitutions, and timetable'
     : isHod
@@ -291,7 +367,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={headerTitle} subtitle={headerSubtitle} />
+      <PageHeader
+        title={headerTitle}
+        subtitle={headerSubtitle}
+        badge={isActingHod ? 'Acting HOD' : null}
+      />
 
       {error && (
         <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl p-4">
@@ -302,13 +382,17 @@ export default function Dashboard() {
       {/* ═══ FACULTY VIEW ═══ */}
       {isFaculty && facultyData ? (
         <>
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <StatCard title="Your Leaves"            value={facultyData.summary.totalLeaves}          icon={Users}       iconBg="bg-indigo-50"  iconColor="text-indigo-600" />
-            <StatCard title="Pending"                value={facultyData.summary.pending}              icon={Clock}       iconBg="bg-amber-50"   iconColor="text-amber-600"
+          {/* Stats row — 5 cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <LeaveBalanceCard
+              taken={facultyData.summary.leavesTaken ?? 0}
+              max={facultyData.summary.maxLeaves ?? 12}
+            />
+            <StatCard title="Your Leaves"    value={facultyData.summary.totalLeaves}          icon={Users}       iconBg="bg-indigo-50"  iconColor="text-indigo-600" />
+            <StatCard title="Pending"         value={facultyData.summary.pending}              icon={Clock}       iconBg="bg-amber-50"   iconColor="text-amber-600"
               badge={facultyData.summary.pending > 0 ? 'Action' : 'Clear'} badgeColor={facultyData.summary.pending > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} />
-            <StatCard title="Assigned Substitutions" value={facultyData.summary.assignedSubstitutions} icon={Activity}    iconBg="bg-violet-50"  iconColor="text-violet-600" />
-            <StatCard title="Accepted Substitutions" value={facultyData.summary.acceptedSubstitutions} icon={CheckCircle} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+            <StatCard title="Normal Load"     value={facultyData.summary.normalLoad ?? '—'}   icon={BookOpen}    iconBg="bg-slate-50"   iconColor="text-slate-500"  subtext="classes/week" />
+            <StatCard title="Extra Load"      value={facultyData.summary.extraLoad ?? 0}      icon={Zap}         iconBg="bg-orange-50"  iconColor="text-orange-500" subtext="substitution classes" />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -360,6 +444,7 @@ export default function Dashboard() {
                         For {sub.originalFaculty?.name || 'colleague'}
                       </p>
                       <p className="text-xs text-slate-500">Class: {sub.class_id} · {sub.date}</p>
+                      {sub.subject && <p className="text-xs text-indigo-600 mt-0.5">{sub.subject} — {sub.day} {sub.start_time}</p>}
                       <div className="mt-3 flex items-center justify-between gap-3">
                         <StatusBadge status={sub.status} />
                         {sub.status === 'assigned' && (
@@ -384,12 +469,49 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Timetable */}
+          {/* Extra Classes (accepted substitutions) */}
+          {facultyData.extraClasses?.length > 0 && (
+            <div className="bg-white rounded-2xl border border-orange-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-orange-100 bg-orange-50 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-orange-500" />
+                <h2 className="text-sm font-bold text-orange-800 uppercase tracking-wider">Extra Classes (Substitutions)</h2>
+                <span className="ml-auto text-xs text-orange-500 font-semibold">TEMPORARY — Not in your permanent schedule</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">
+                      <th className="px-5 py-3 text-left font-semibold">Covering For</th>
+                      <th className="px-5 py-3 text-left font-semibold">Subject</th>
+                      <th className="px-5 py-3 text-left font-semibold">Class</th>
+                      <th className="px-5 py-3 text-left font-semibold">Day</th>
+                      <th className="px-5 py-3 text-left font-semibold">Time</th>
+                      <th className="px-5 py-3 text-left font-semibold">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {facultyData.extraClasses.map((ec, i) => (
+                      <tr key={ec.id || i} className="hover:bg-orange-50/50 transition-colors">
+                        <td className="px-5 py-3 font-semibold text-slate-900">{ec.originalFaculty?.name || 'Colleague'}</td>
+                        <td className="px-5 py-3 text-slate-700">{ec.subject || '—'}</td>
+                        <td className="px-5 py-3 text-indigo-600 font-mono text-xs">{ec.class_id}</td>
+                        <td className="px-5 py-3 text-slate-600">{ec.day || '—'}</td>
+                        <td className="px-5 py-3 text-slate-500 text-xs">{ec.start_time} – {ec.end_time}</td>
+                        <td className="px-5 py-3 text-slate-500 text-xs">{ec.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Original Timetable */}
           {facultyData.timetable?.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-indigo-500" />
-                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Your Timetable</h2>
+                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Your Permanent Timetable</h2>
                 <span className="ml-auto text-xs text-slate-400">{facultyData.timetable.length} slots</span>
               </div>
               <div className="overflow-x-auto">
@@ -430,8 +552,23 @@ export default function Dashboard() {
             <StatCard title="Avg Impact"     value={hodData.summary.averageImpact?.toFixed?.(1) ?? hodData.summary.averageImpact} icon={Activity} iconBg="bg-violet-50" iconColor="text-violet-600" />
           </div>
 
+          {/* Acting HOD notice */}
+          {hodData.actingHod && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                <Users className="w-4 h-4 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-800">Active Acting HOD Assignment</p>
+                <p className="text-xs text-amber-700">
+                  Acting HOD from {hodData.actingHod.from_date} to {hodData.actingHod.to_date}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            {/* Leave requests table */}
+            {/* Leave requests with substitution progress */}
             <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                 <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Department Leave Requests</h2>
@@ -450,15 +587,23 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-semibold text-slate-900 text-sm">{leave.faculty_name || 'Faculty'}</p>
                               <StatusBadge status={leave.status} />
+                              {leave.is_hod_leave && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">
+                                  HOD Leave
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs text-slate-500 mt-0.5">{leave.reason}</p>
                             <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
                               <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {leave.from_date} → {leave.to_date}
+                                <Calendar className="w-3 h-3" />{leave.from_date} → {leave.to_date}
                               </span>
                               <span>Impact: <strong>{leave.impact_score || 'N/A'}</strong></span>
                             </div>
+                            {/* Substitution progress for approved leaves */}
+                            {leave.status === 'approved' && (
+                              <SubProgress leaveId={leave.id} />
+                            )}
                           </div>
 
                           {/* Actions */}
@@ -470,7 +615,6 @@ export default function Dashboard() {
                             >
                               <Play className="w-4 h-4" />
                             </button>
-
                             {leave.status === 'pending' && (
                               <>
                                 <button
@@ -505,22 +649,26 @@ export default function Dashboard() {
                 <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Department Team</h2>
               </div>
               <div className="space-y-2">
-                {hodData.members.filter(m => m.role === 'faculty').map((member) => (
-                  <div key={member.id} className="flex items-center gap-3 rounded-xl border border-slate-100 p-3 bg-slate-50">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs shrink-0">
-                      {member.name.charAt(0)}
+                {hodData.members.filter(m => m.role === 'faculty').map((member) => {
+                  const isActingHodMember = member.acting_role === 'hod';
+                  return (
+                    <div key={member.id} className={`flex items-center gap-3 rounded-xl border p-3 ${isActingHodMember ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${isActingHodMember ? 'bg-amber-200 text-amber-800' : 'bg-indigo-100 text-indigo-700'}`}>
+                        {member.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-900 text-sm truncate">{member.name}</p>
+                        <p className="text-xs text-slate-500 capitalize">
+                          {isActingHodMember ? '⭐ Acting HOD' : member.role}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900 text-sm truncate">{member.name}</p>
-                      <p className="text-xs text-slate-500 capitalize">{member.role}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          {/* Simulation modal */}
           {simLeave && <SimulationModal leave={simLeave} onClose={() => setSimLeave(null)} />}
         </>
 
@@ -528,11 +676,11 @@ export default function Dashboard() {
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="Total Leaves"  value={summary.totalLeaves}          icon={Users}       iconBg="bg-indigo-50"  iconColor="text-indigo-600" badge="+12%" badgeColor="bg-emerald-100 text-emerald-700" />
-            <StatCard title="Pending"       value={summary.pendingLeaves}        icon={Clock}       iconBg="bg-amber-50"   iconColor="text-amber-600"
+            <StatCard title="Total Leaves"  value={summary.totalLeaves}                    icon={Users}       iconBg="bg-indigo-50"  iconColor="text-indigo-600" badge="+12%" badgeColor="bg-emerald-100 text-emerald-700" />
+            <StatCard title="Pending"       value={summary.pendingLeaves}                  icon={Clock}       iconBg="bg-amber-50"   iconColor="text-amber-600"
               badge={summary.pendingLeaves > 0 ? 'Review' : 'Clear'} badgeColor={summary.pendingLeaves > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} />
-            <StatCard title="Avg Impact"    value={Number(summary.avgImpact).toFixed(1)} icon={Activity}    iconBg="bg-violet-50"  iconColor="text-violet-600" />
-            <StatCard title="Success Rate"  value="92%"                          icon={CheckCircle} iconBg="bg-emerald-50" iconColor="text-emerald-600" badge="↑ 4%" badgeColor="bg-emerald-100 text-emerald-700" />
+            <StatCard title="Avg Impact"    value={Number(summary.avgImpact).toFixed(1)}   icon={Activity}    iconBg="bg-violet-50"  iconColor="text-violet-600" />
+            <StatCard title="Success Rate"  value="92%"                                    icon={CheckCircle} iconBg="bg-emerald-50" iconColor="text-emerald-600" badge="↑ 4%" badgeColor="bg-emerald-100 text-emerald-700" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

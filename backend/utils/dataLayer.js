@@ -7,6 +7,22 @@ import * as mock from './mockData.js';
 
 // Helper: safe check at call-time (pool may become null after failed ping)
 const useDB = () => pool !== null;
+
+// ─── Internal normalizer ──────────────────────────────────────────────────────
+// pg returns DATE columns as JS Date objects. Convert to 'YYYY-MM-DD' strings
+// so string comparisons in helpers work correctly in both mock and DB mode.
+function normalizeLeaveRow(row) {
+  return {
+    ...row,
+    from_date: row.from_date instanceof Date
+      ? row.from_date.toISOString().split('T')[0]
+      : String(row.from_date),
+    to_date: row.to_date instanceof Date
+      ? row.to_date.toISOString().split('T')[0]
+      : String(row.to_date),
+  };
+}
+
 // ─── Departments ──────────────────────────────────────────────────────────────
 export const getDepartments = async () => {
   if (!useDB()) return [...mock.departments];
@@ -54,6 +70,50 @@ export const getUserByEmail = async (email) => {
   }
 };
 
+// Update user acting_role field
+export const setUserActingRole = async (userId, actingRole) => {
+  const numId = Number(userId);
+  if (!useDB()) {
+    const user = mock.users.find((u) => u.id === numId);
+    if (user) user.acting_role = actingRole;
+    return user || null;
+  }
+  try {
+    const { rows } = await pool.query(
+      'UPDATE users SET acting_role = $1 WHERE id = $2 RETURNING *',
+      [actingRole, numId]
+    );
+    return rows[0] || null;
+  } catch (e) {
+    console.warn('[dataLayer] setUserActingRole DB error, using mock:', e.message);
+    const user = mock.users.find((u) => u.id === numId);
+    if (user) user.acting_role = actingRole;
+    return user || null;
+  }
+};
+
+// Increment leaves_taken by 1 for a user (called on leave approval)
+export const incrementLeavesTaken = async (userId) => {
+  const numId = Number(userId);
+  if (!useDB()) {
+    const user = mock.users.find((u) => u.id === numId);
+    if (user) user.leaves_taken = (user.leaves_taken || 0) + 1;
+    return user || null;
+  }
+  try {
+    const { rows } = await pool.query(
+      'UPDATE users SET leaves_taken = COALESCE(leaves_taken, 0) + 1 WHERE id = $1 RETURNING *',
+      [numId]
+    );
+    return rows[0] || null;
+  } catch (e) {
+    console.warn('[dataLayer] incrementLeavesTaken DB error, using mock:', e.message);
+    const user = mock.users.find((u) => u.id === numId);
+    if (user) user.leaves_taken = (user.leaves_taken || 0) + 1;
+    return user || null;
+  }
+};
+
 // ─── Timetable ────────────────────────────────────────────────────────────────
 export const getTimetable = async () => {
   if (!useDB()) return [...mock.timetable];
@@ -90,7 +150,6 @@ export const getLeaveRequests = async () => {
          JOIN users u ON u.id = lr.faculty_id
         ORDER BY lr.id DESC`
     );
-    // Normalize date fields from DB Date objects → ISO strings
     return rows.map(normalizeLeaveRow);
   } catch (e) {
     console.warn('[dataLayer] getLeaveRequests DB error, using mock:', e.message);
@@ -116,9 +175,10 @@ export const getLeaveById = async (id) => {
   }
 };
 
-export const createLeaveRequest = async ({ faculty_id, from_date, to_date, reason, impact_score = 0 }) => {
+export const createLeaveRequest = async ({ faculty_id, from_date, to_date, reason, impact_score = 0, is_hod_leave = false, acting_hod_id = null, status_override = null }) => {
   const faculty = await getUserById(Number(faculty_id));
   const department_id = faculty ? faculty.department_id : null;
+  const status = status_override || 'pending';
 
   if (!useDB()) {
     const rec = {
@@ -128,17 +188,19 @@ export const createLeaveRequest = async ({ faculty_id, from_date, to_date, reaso
       from_date,
       to_date,
       reason,
-      status: 'pending',
+      status,
       impact_score,
+      is_hod_leave,
+      acting_hod_id: acting_hod_id ? Number(acting_hod_id) : null,
     };
     mock.leaveRequests.push(rec);
     return rec;
   }
   try {
     const { rows } = await pool.query(
-      `INSERT INTO leave_requests (faculty_id, department_id, from_date, to_date, reason, status, impact_score)
-       VALUES ($1, $2, $3, $4, $5, 'pending', $6) RETURNING *`,
-      [faculty_id, department_id, from_date, to_date, reason, impact_score]
+      `INSERT INTO leave_requests (faculty_id, department_id, from_date, to_date, reason, status, impact_score, is_hod_leave, acting_hod_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [faculty_id, department_id, from_date, to_date, reason, status, impact_score, is_hod_leave, acting_hod_id]
     );
     return normalizeLeaveRow(rows[0]);
   } catch (e) {
@@ -150,8 +212,10 @@ export const createLeaveRequest = async ({ faculty_id, from_date, to_date, reaso
       from_date,
       to_date,
       reason,
-      status: 'pending',
+      status,
       impact_score,
+      is_hod_leave,
+      acting_hod_id: acting_hod_id ? Number(acting_hod_id) : null,
     };
     mock.leaveRequests.push(rec);
     return rec;
@@ -220,6 +284,7 @@ export const getLeavesByDepartment = async (departmentId) => {
   }
 };
 
+// ─── Substitutions ────────────────────────────────────────────────────────────
 export const getSubstitutionsByFaculty = async (facultyId) => {
   const numId = Number(facultyId);
   if (!useDB()) {
@@ -256,6 +321,72 @@ export const getSubstitutionsByFaculty = async (facultyId) => {
   }
 };
 
+// Extra classes = accepted substitutions for a faculty (TEMPORARY, not in timetable)
+export const getExtraClassesByFaculty = async (facultyId) => {
+  const numId = Number(facultyId);
+  if (!useDB()) {
+    return mock.substitutions
+      .filter((s) => Number(s.substitute_faculty_id) === numId && s.status === 'accepted')
+      .map((s) => ({
+        ...s,
+        originalFaculty: mock.users.find((u) => u.id === s.original_faculty_id) || null,
+      }));
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT s.*, o.name AS original_name
+         FROM substitutions s
+         JOIN users o ON o.id = s.original_faculty_id
+        WHERE s.substitute_faculty_id = $1 AND s.status = 'accepted'
+        ORDER BY s.id DESC`,
+      [numId]
+    );
+    return rows.map((row) => ({
+      ...row,
+      originalFaculty: { id: row.original_faculty_id, name: row.original_name },
+    }));
+  } catch (e) {
+    console.warn('[dataLayer] getExtraClassesByFaculty DB error, using mock:', e.message);
+    return mock.substitutions
+      .filter((s) => Number(s.substitute_faculty_id) === numId && s.status === 'accepted')
+      .map((s) => ({
+        ...s,
+        originalFaculty: mock.users.find((u) => u.id === s.original_faculty_id) || null,
+      }));
+  }
+};
+
+// Substitutions for a given leave (for HOD feedback loop)
+export const getSubstitutionsByLeave = async (leaveId) => {
+  const numId = Number(leaveId);
+  if (!useDB()) {
+    return mock.substitutions
+      .filter((s) => Number(s.leave_id) === numId)
+      .map((s) => ({
+        ...s,
+        substituteName: (mock.users.find((u) => u.id === s.substitute_faculty_id) || {}).name || 'Unknown',
+      }));
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT s.*, u.name AS substitute_name
+         FROM substitutions s
+         JOIN users u ON u.id = s.substitute_faculty_id
+        WHERE s.leave_id = $1`,
+      [numId]
+    );
+    return rows.map((row) => ({ ...row, substituteName: row.substitute_name }));
+  } catch (e) {
+    console.warn('[dataLayer] getSubstitutionsByLeave DB error, using mock:', e.message);
+    return mock.substitutions
+      .filter((s) => Number(s.leave_id) === numId)
+      .map((s) => ({
+        ...s,
+        substituteName: (mock.users.find((u) => u.id === s.substitute_faculty_id) || {}).name || 'Unknown',
+      }));
+  }
+};
+
 export const getSubstitutionById = async (id) => {
   const numId = Number(id);
   if (!useDB()) return mock.substitutions.find((s) => s.id === numId) || null;
@@ -268,7 +399,10 @@ export const getSubstitutionById = async (id) => {
   }
 };
 
-export const createSubstitution = async ({ leave_id, original_faculty_id, substitute_faculty_id, class_id, date, status = 'assigned' }) => {
+export const createSubstitution = async ({
+  leave_id, original_faculty_id, substitute_faculty_id,
+  class_id, subject = '', day = '', start_time = '', end_time = '', date, status = 'assigned'
+}) => {
   if (!useDB()) {
     const rec = {
       id: mock.nextId(mock.substitutions),
@@ -276,6 +410,10 @@ export const createSubstitution = async ({ leave_id, original_faculty_id, substi
       original_faculty_id: Number(original_faculty_id),
       substitute_faculty_id: Number(substitute_faculty_id),
       class_id,
+      subject,
+      day,
+      start_time,
+      end_time,
       date,
       status,
     };
@@ -284,9 +422,9 @@ export const createSubstitution = async ({ leave_id, original_faculty_id, substi
   }
   try {
     const { rows } = await pool.query(
-      `INSERT INTO substitutions (leave_id, original_faculty_id, substitute_faculty_id, class_id, date, status)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [leave_id, original_faculty_id, substitute_faculty_id, class_id, date, status]
+      `INSERT INTO substitutions (leave_id, original_faculty_id, substitute_faculty_id, class_id, subject, day, start_time, end_time, date, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [leave_id, original_faculty_id, substitute_faculty_id, class_id, subject, day, start_time, end_time, date, status]
     );
     return rows[0];
   } catch (e) {
@@ -297,6 +435,10 @@ export const createSubstitution = async ({ leave_id, original_faculty_id, substi
       original_faculty_id: Number(original_faculty_id),
       substitute_faculty_id: Number(substitute_faculty_id),
       class_id,
+      subject,
+      day,
+      start_time,
+      end_time,
       date,
       status,
     };
@@ -352,17 +494,100 @@ export const getUsersByDepartment = async (departmentId) => {
   }
 };
 
-// ─── Internal normalizer ──────────────────────────────────────────────────────
-// pg returns DATE columns as JS Date objects. Convert to 'YYYY-MM-DD' strings
-// so string comparisons in helpers work correctly in both mock and DB mode.
-function normalizeLeaveRow(row) {
-  return {
-    ...row,
-    from_date: row.from_date instanceof Date
-      ? row.from_date.toISOString().split('T')[0]
-      : String(row.from_date),
-    to_date: row.to_date instanceof Date
-      ? row.to_date.toISOString().split('T')[0]
-      : String(row.to_date),
-  };
-}
+// ─── Acting HOD Assignments ───────────────────────────────────────────────────
+
+export const getActingHodAssignment = async (departmentId) => {
+  const numId = Number(departmentId);
+  if (!useDB()) {
+    return mock.actingHodAssignments.find((a) => a.department_id === numId && a.active) || null;
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT a.*, o.name AS hod_name, u.name AS acting_hod_name
+         FROM acting_hod_assignments a
+         JOIN users o ON o.id = a.original_hod_id
+         JOIN users u ON u.id = a.acting_hod_id
+        WHERE a.department_id = $1 AND a.active = true
+        ORDER BY a.id DESC LIMIT 1`,
+      [numId]
+    );
+    return rows[0] || null;
+  } catch (e) {
+    console.warn('[dataLayer] getActingHodAssignment DB error, using mock:', e.message);
+    return mock.actingHodAssignments.find((a) => a.department_id === numId && a.active) || null;
+  }
+};
+
+export const createActingHodAssignment = async ({ department_id, original_hod_id, acting_hod_id, from_date, to_date }) => {
+  if (!useDB()) {
+    const rec = {
+      id: mock.nextId(mock.actingHodAssignments),
+      department_id: Number(department_id),
+      original_hod_id: Number(original_hod_id),
+      acting_hod_id: Number(acting_hod_id),
+      from_date,
+      to_date,
+      active: true,
+    };
+    mock.actingHodAssignments.push(rec);
+    return rec;
+  }
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO acting_hod_assignments (department_id, original_hod_id, acting_hod_id, from_date, to_date, active)
+       VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
+      [department_id, original_hod_id, acting_hod_id, from_date, to_date]
+    );
+    return rows[0];
+  } catch (e) {
+    console.warn('[dataLayer] createActingHodAssignment DB error, using mock:', e.message);
+    const rec = {
+      id: mock.nextId(mock.actingHodAssignments),
+      department_id: Number(department_id),
+      original_hod_id: Number(original_hod_id),
+      acting_hod_id: Number(acting_hod_id),
+      from_date,
+      to_date,
+      active: true,
+    };
+    mock.actingHodAssignments.push(rec);
+    return rec;
+  }
+};
+
+export const deactivateActingHodAssignment = async (id) => {
+  const numId = Number(id);
+  if (!useDB()) {
+    const rec = mock.actingHodAssignments.find((a) => a.id === numId);
+    if (rec) rec.active = false;
+    return rec || null;
+  }
+  try {
+    const { rows } = await pool.query(
+      'UPDATE acting_hod_assignments SET active = false WHERE id = $1 RETURNING *',
+      [numId]
+    );
+    return rows[0] || null;
+  } catch (e) {
+    console.warn('[dataLayer] deactivateActingHodAssignment DB error, using mock:', e.message);
+    const rec = mock.actingHodAssignments.find((a) => a.id === numId);
+    if (rec) rec.active = false;
+    return rec || null;
+  }
+};
+
+// Get ALL active acting HOD assignments (used by revert logic)
+export const getActiveActingHodAssignments = async () => {
+  if (!useDB()) {
+    return mock.actingHodAssignments.filter((a) => a.active);
+  }
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM acting_hod_assignments WHERE active = true'
+    );
+    return rows;
+  } catch (e) {
+    console.warn('[dataLayer] getActiveActingHodAssignments DB error, using mock:', e.message);
+    return mock.actingHodAssignments.filter((a) => a.active);
+  }
+};

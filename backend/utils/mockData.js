@@ -13,19 +13,20 @@ export const departments = [
   { id: 4, name: 'Mechanical', hod_id: 12 },
 ];
 
+// max_leaves: 12 per year; leaves_taken: count used; acting_role: null or 'hod'
 export const users = [
-  { id: 1, name: 'Dr. Arjun Mehta',    email: 'arjun@college.edu',  role: 'faculty', department_id: 1, skills: ['data structures', 'algorithms'], password: hash('password') },
-  { id: 2, name: 'Prof. Sunita Rao',   email: 'sunita@college.edu', role: 'faculty', department_id: 1, skills: ['databases', 'system design'], password: hash('password') },
-  { id: 3, name: 'Dr. Kiran Desai',    email: 'kiran@college.edu',  role: 'faculty', department_id: 2, skills: ['calculus', 'linear algebra'], password: hash('password') },
-  { id: 4, name: 'Prof. Meena Iyer',   email: 'meena@college.edu',  role: 'faculty', department_id: 3, skills: ['digital electronics', 'signals'], password: hash('password') },
-  { id: 5, name: 'Dr. Rajan Pillai',   email: 'rajan@college.edu',  role: 'faculty', department_id: 1, skills: ['algorithms', 'operating systems'], password: hash('password') },
-  { id: 6, name: 'Prof. Divya Nair',   email: 'divya@college.edu',  role: 'faculty', department_id: 2, skills: ['probability', 'calculus'], password: hash('password') },
-  { id: 7, name: 'Dr. Sanjay Gupta',   email: 'sanjay@college.edu', role: 'faculty', department_id: 4, skills: ['thermodynamics', 'fluid mechanics'], password: hash('password') },
-  { id: 8, name: 'Prof. Priya Kumar',  email: 'priya@college.edu',  role: 'faculty', department_id: 1, skills: ['operating systems', 'computer networks'], password: hash('password') },
-  { id: 9, name: 'Dr. Nikhil Verma',   email: 'nikhil@college.edu', role: 'hod',     department_id: 1, skills: ['academic leadership'], password: hash('password') },
-  { id: 10, name: 'Dr. Meera Joshi',    email: 'meera@college.edu',  role: 'hod',     department_id: 2, skills: ['academic leadership'], password: hash('password') },
-  { id: 11, name: 'Dr. Rohit Sharma',   email: 'rohit@college.edu',  role: 'hod',     department_id: 3, skills: ['academic leadership'], password: hash('password') },
-  { id: 12, name: 'Dr. Anjali Gupta',   email: 'anjali@college.edu',  role: 'hod',     department_id: 4, skills: ['academic leadership'], password: hash('password') },
+  { id: 1,  name: 'Dr. Arjun Mehta',    email: 'arjun@college.edu',  role: 'faculty', department_id: 1, skills: ['data structures', 'algorithms'], max_leaves: 12, leaves_taken: 2, acting_role: null, password: hash('password') },
+  { id: 2,  name: 'Prof. Sunita Rao',   email: 'sunita@college.edu', role: 'faculty', department_id: 1, skills: ['databases', 'system design'],     max_leaves: 12, leaves_taken: 1, acting_role: null, password: hash('password') },
+  { id: 3,  name: 'Dr. Kiran Desai',    email: 'kiran@college.edu',  role: 'faculty', department_id: 2, skills: ['calculus', 'linear algebra'],       max_leaves: 12, leaves_taken: 1, acting_role: null, password: hash('password') },
+  { id: 4,  name: 'Prof. Meena Iyer',   email: 'meena@college.edu',  role: 'faculty', department_id: 3, skills: ['digital electronics', 'signals'],   max_leaves: 12, leaves_taken: 0, acting_role: null, password: hash('password') },
+  { id: 5,  name: 'Dr. Rajan Pillai',   email: 'rajan@college.edu',  role: 'faculty', department_id: 1, skills: ['algorithms', 'operating systems'],  max_leaves: 12, leaves_taken: 0, acting_role: null, password: hash('password') },
+  { id: 6,  name: 'Prof. Divya Nair',   email: 'divya@college.edu',  role: 'faculty', department_id: 2, skills: ['probability', 'calculus'],           max_leaves: 12, leaves_taken: 0, acting_role: null, password: hash('password') },
+  { id: 7,  name: 'Dr. Sanjay Gupta',   email: 'sanjay@college.edu', role: 'faculty', department_id: 4, skills: ['thermodynamics', 'fluid mechanics'], max_leaves: 12, leaves_taken: 0, acting_role: null, password: hash('password') },
+  { id: 8,  name: 'Prof. Priya Kumar',  email: 'priya@college.edu',  role: 'faculty', department_id: 1, skills: ['operating systems', 'computer networks'], max_leaves: 12, leaves_taken: 0, acting_role: null, password: hash('password') },
+  { id: 9,  name: 'Dr. Nikhil Verma',  email: 'nikhil@college.edu', role: 'hod',     department_id: 1, skills: ['academic leadership'],              max_leaves: 12, leaves_taken: 0, acting_role: null, password: hash('password') },
+  { id: 10, name: 'Dr. Meera Joshi',   email: 'meera@college.edu',  role: 'hod',     department_id: 2, skills: ['academic leadership'],              max_leaves: 12, leaves_taken: 0, acting_role: null, password: hash('password') },
+  { id: 11, name: 'Dr. Rohit Sharma',  email: 'rohit@college.edu',  role: 'hod',     department_id: 3, skills: ['academic leadership'],              max_leaves: 12, leaves_taken: 0, acting_role: null, password: hash('password') },
+  { id: 12, name: 'Dr. Anjali Gupta',  email: 'anjali@college.edu', role: 'hod',     department_id: 4, skills: ['academic leadership'],              max_leaves: 12, leaves_taken: 0, acting_role: null, password: hash('password') },
 ];
 
 export const timetable = [
@@ -74,6 +75,8 @@ export let leaveRequests = [
     reason: 'Medical appointment',
     status: 'approved',
     impact_score: 4.2,
+    is_hod_leave: false,
+    acting_hod_id: null,
   },
   {
     id: 2,
@@ -84,6 +87,8 @@ export let leaveRequests = [
     reason: 'Family function',
     status: 'pending',
     impact_score: 2.8,
+    is_hod_leave: false,
+    acting_hod_id: null,
   },
   {
     id: 3,
@@ -94,9 +99,12 @@ export let leaveRequests = [
     reason: 'Conference',
     status: 'approved',
     impact_score: 3.5,
+    is_hod_leave: false,
+    acting_hod_id: null,
   },
 ];
 
+// Substitutions now include subject/day/time for extra-class display (NO timetable modification)
 export let substitutions = [
   {
     id: 1,
@@ -104,6 +112,10 @@ export let substitutions = [
     original_faculty_id: 1,
     substitute_faculty_id: 5,
     class_id: 'CS-301',
+    subject: 'Data Structures',
+    day: 'Monday',
+    start_time: '09:00',
+    end_time: '10:00',
     date: '2025-04-10',
     status: 'accepted',
   },
@@ -132,6 +144,9 @@ export const deptScores = [
   { department_id: 4, date: '2025-04-07', score: 74 },
   { department_id: 4, date: '2025-04-14', score: 70 },
 ];
+
+// Acting HOD assignments — created when HOD's leave is approved
+export let actingHodAssignments = [];
 
 // Helper: get next auto-increment id for a collection
 export const nextId = (arr) => (arr.length ? Math.max(...arr.map((r) => r.id)) + 1 : 1);
