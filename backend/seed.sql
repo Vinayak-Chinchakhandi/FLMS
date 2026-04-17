@@ -1,3 +1,9 @@
+INSERT INTO departments (id, name) VALUES
+(1, 'Computer Science'),
+(2, 'Mathematics'),
+(3, 'Electronics'),
+(4, 'Mechanical');
+
 INSERT INTO users (id, name, email, password, role, department_id, skills, max_leaves, leaves_taken, acting_role) VALUES
 (1, 'Dr. Arjun Mehta', 'arjun@college.edu', '7cb3195e091d14a37737a2c9a99f78e4db11ba18fb010ffd2a2ce04c7440cc850a2b3d225981db0c2d3bbd21f06dd001d28dd65df7d328846c900261f99f1e17', 'faculty', 1, ARRAY['data structures','algorithms'], 12, 2, NULL),
 (2, 'Prof. Sunita Rao', 'sunita@college.edu', '7cb3195e091d14a37737a2c9a99f78e4db11ba18fb010ffd2a2ce04c7440cc850a2b3d225981db0c2d3bbd21f06dd001d28dd65df7d328846c900261f99f1e17', 'faculty', 1, ARRAY['databases','system design'], 12, 1, NULL),
@@ -12,11 +18,10 @@ INSERT INTO users (id, name, email, password, role, department_id, skills, max_l
 (11, 'Dr. Rohit Sharma', 'rohit@college.edu', '7cb3195e091d14a37737a2c9a99f78e4db11ba18fb010ffd2a2ce04c7440cc850a2b3d225981db0c2d3bbd21f06dd001d28dd65df7d328846c900261f99f1e17', 'hod', 3, ARRAY['academic leadership'], 12, 0, NULL),
 (12, 'Dr. Anjali Gupta', 'anjali@college.edu', '7cb3195e091d14a37737a2c9a99f78e4db11ba18fb010ffd2a2ce04c7440cc850a2b3d225981db0c2d3bbd21f06dd001d28dd65df7d328846c900261f99f1e17', 'hod', 4, ARRAY['academic leadership'], 12, 0, NULL);
 
-INSERT INTO departments (id, name, hod_id) VALUES
-(1, 'Computer Science', 9),
-(2, 'Mathematics', 10),
-(3, 'Electronics', 11),
-(4, 'Mechanical', 12);
+UPDATE departments SET hod_id = 9 WHERE id = 1;
+UPDATE departments SET hod_id = 10 WHERE id = 2;
+UPDATE departments SET hod_id = 11 WHERE id = 3;
+UPDATE departments SET hod_id = 12 WHERE id = 4;
 
 INSERT INTO timetable (id, faculty_id, subject, day, start_time, end_time, class_id) VALUES
 (1,1,'Data Structures','Monday','09:00','10:00','CS-301'),
