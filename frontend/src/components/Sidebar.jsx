@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarPlus, Activity, Building, Settings, LogOut,
+  LayoutDashboard, CalendarPlus, Activity, Building, Settings, LogOut, MoreHorizontal,
 } from 'lucide-react';
 
 const FACULTY_NAV = [
@@ -16,6 +16,16 @@ const HOD_NAV = [
   { name: 'Simulation',    path: '/simulation',  icon: Activity },
   { name: 'Departments',   path: '/departments', icon: Building },
   { name: 'Settings',      path: '/settings',    icon: Settings },
+];
+
+// Acting HOD gets BOTH faculty and HOD access
+const ACTING_HOD_NAV = [
+  { name: 'Faculty Dashboard', path: '/faculty',  icon: LayoutDashboard },
+  { name: 'HOD Dashboard',     path: '/hod',       icon: LayoutDashboard },
+  { name: 'Simulation',        path: '/simulation', icon: Activity },
+  { name: 'Apply Leave',       path: '/apply',      icon: CalendarPlus },
+  { name: 'Departments',       path: '/departments', icon: Building },
+  { name: 'Settings',          path: '/settings',   icon: Settings },
 ];
 
 function NavItem({ item }) {
@@ -41,9 +51,19 @@ function NavItem({ item }) {
 export default function Sidebar() {
   const navigate    = useNavigate();
   const user        = JSON.parse(localStorage.getItem('iflo_user') || '{}');
-  const isActingHod = user.role !== 'hod' && user.acting_role === 'hod';
-  const isHod       = user.role === 'hod' || user.acting_role === 'hod';
-  const navItems    = isHod ? HOD_NAV : FACULTY_NAV;
+  const isActingHod = user.acting_role === 'hod';
+  const isRealHod   = user.role === 'hod';
+  const isHod       = isRealHod || isActingHod;
+  
+  // Acting HOD gets full combined nav, real HOD gets HOD nav, faculty gets faculty nav
+  let navItems;
+  if (isActingHod) {
+    navItems = ACTING_HOD_NAV;
+  } else if (isHod) {
+    navItems = HOD_NAV;
+  } else {
+    navItems = FACULTY_NAV;
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('iflo_user');
@@ -111,11 +131,24 @@ export default function Sidebar() {
   );
 }
 
+// Acting HOD bottom nav (5 items max per mobile UX constraint)
+const ACTING_HOD_BOTTOM_NAV = [
+  { name: 'Faculty', path: '/faculty', icon: LayoutDashboard },
+  { name: 'HOD',     path: '/hod',     icon: LayoutDashboard },
+  { name: 'Sim',     path: '/simulation', icon: Activity },
+  { name: 'Apply',   path: '/apply',   icon: CalendarPlus },
+  { name: 'More',    path: '/more',    icon: MoreHorizontal },
+];
+
 /* ── Mobile Bottom Nav ───────────────────────────────────────────────────── */
 export function BottomNav() {
-  const user     = JSON.parse(localStorage.getItem('iflo_user') || '{}');
-  const isHod    = user.role === 'hod' || user.acting_role === 'hod';
-  const navItems = (isHod ? HOD_NAV : FACULTY_NAV);
+  const user        = JSON.parse(localStorage.getItem('iflo_user') || '{}');
+  const isActingHod = user.acting_role === 'hod';
+  const isRealHod   = user.role === 'hod';
+  const isHod       = isRealHod || isActingHod;
+  
+  // Acting HOD gets special 5-item nav, others get standard
+  const navItems = isActingHod ? ACTING_HOD_BOTTOM_NAV : (isHod ? HOD_NAV : FACULTY_NAV);
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 flex items-stretch">

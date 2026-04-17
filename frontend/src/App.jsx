@@ -8,6 +8,44 @@ import DepartmentDetail from './pages/DepartmentDetail';
 import Settings         from './pages/Settings';
 import Login            from './pages/Login';
 import { getMe }        from './services/api';
+import { Building, Settings as SettingsIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+// ─── More Page ───────────────────────────────────────────────────────────────
+function MorePage() {
+  const navigate = useNavigate();
+  const user = getUser();
+  const isActingHod = user.acting_role === 'hod';
+
+  const items = [
+    { name: 'Departments', path: '/departments', icon: Building },
+    { name: 'Settings',    path: '/settings',    icon: SettingsIcon },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">More</h1>
+        <p className="text-slate-500 text-sm mt-1">Additional options</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {items.map((item) => (
+          <button
+            key={item.path}
+            onClick={() => navigate(item.path)}
+            className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all text-left"
+          >
+            <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+              <item.icon className="w-5 h-5 text-indigo-600" />
+            </div>
+            <span className="font-medium text-slate-900">{item.name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 function getUser() {
@@ -38,14 +76,20 @@ function RequireRole({ role, children }) {
   const user = getUser();
   if (!user?.role) return <Navigate to="/login" replace />;
 
-  // HOD route check: accept actual hod OR acting hod
-  if (role === 'hod' && canAccessHod(user)) return children;
+  const isRealHod = user.role === 'hod';
+  const isActingHod = user.acting_role === 'hod';
+  const isFaculty = user.role === 'faculty';
+  const canAccessHod = isRealHod || isActingHod;
+  const canAccessFaculty = isFaculty || isActingHod;
 
-  // Faculty route check  
-  if (role === 'faculty' && user.role === 'faculty') return children;
+  // HOD route check: accept actual hod OR acting hod
+  if (role === 'hod' && canAccessHod) return children;
+
+  // Faculty route check: accept actual faculty OR acting hod
+  if (role === 'faculty' && canAccessFaculty) return children;
 
   // Mismatch — redirect to own home
-  if (canAccessHod(user)) return <Navigate to="/hod" replace />;
+  if (canAccessHod) return <Navigate to="/hod" replace />;
   return <Navigate to="/faculty" replace />;
 }
 
@@ -110,6 +154,7 @@ function AppShell() {
             {/* Shared */}
             <Route path="/departments" element={<DepartmentDetail />} />
             <Route path="/settings"    element={<Settings />} />
+            <Route path="/more"        element={<MorePage />} />
 
             {/* Fallback */}
             <Route path="*" element={<RoleRedirect />} />
@@ -124,7 +169,14 @@ function AppShell() {
 function RoleRedirect() {
   const user = getUser();
   if (!user?.role) return <Navigate to="/login" replace />;
-  if (canAccessHod(user)) return <Navigate to="/hod" replace />;
+
+  const isRealHod = user.role === 'hod';
+  const isActingHod = user.acting_role === 'hod';
+
+  // Acting HOD defaults to faculty view, real HOD to hod view, faculty to faculty
+  if (isActingHod) return <Navigate to="/faculty" replace />;
+  if (isRealHod) return <Navigate to="/hod" replace />;
+
   return <Navigate to="/faculty" replace />;
 }
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -53,8 +54,8 @@ function StatCard({ title, value, icon: Icon, iconBg, iconColor, badge, badgeCol
 /* ─── Leave Balance Card ──────────────────────────────────────────────────── */
 function LeaveBalanceCard({ taken, max }) {
   const remaining = Math.max(0, max - taken);
-  const pct       = Math.min(100, Math.round((taken / max) * 100));
-  const barColor  = pct >= 100 ? 'bg-red-500' : pct >= 75 ? 'bg-amber-500' : 'bg-emerald-500';
+  const pct = Math.min(100, Math.round((taken / max) * 100));
+  const barColor = pct >= 100 ? 'bg-red-500' : pct >= 75 ? 'bg-amber-500' : 'bg-emerald-500';
   const textColor = pct >= 100 ? 'text-red-600' : pct >= 75 ? 'text-amber-600' : 'text-emerald-700';
 
   return (
@@ -83,7 +84,7 @@ function LeaveBalanceCard({ taken, max }) {
 function heatColor(count, avgImpact) {
   if (count === 0) return 'bg-slate-100 text-slate-400';
   if (avgImpact > 2.5) return 'bg-red-500 text-white';
-  if (count > 1)       return 'bg-amber-400 text-white';
+  if (count > 1) return 'bg-amber-400 text-white';
   return 'bg-emerald-400 text-white';
 }
 
@@ -91,10 +92,10 @@ function heatColor(count, avgImpact) {
 function StatusBadge({ status }) {
   const cls =
     status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-    status === 'pending'  ? 'bg-amber-100 text-amber-700' :
-    status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
-    status === 'assigned' ? 'bg-blue-100 text-blue-700' :
-                            'bg-rose-100 text-rose-700';
+      status === 'pending' ? 'bg-amber-100 text-amber-700' :
+        status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
+          status === 'assigned' ? 'bg-blue-100 text-blue-700' :
+            'bg-rose-100 text-rose-700';
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
       {status}
@@ -109,7 +110,7 @@ function SubProgress({ leaveId }) {
   useEffect(() => {
     getSubstitutionStatus(leaveId)
       .then((r) => setData(r.data.data))
-      .catch(() => {});
+      .catch(() => { });
   }, [leaveId]);
 
   if (!data || data.total === 0) return null;
@@ -155,16 +156,16 @@ const RANK_STYLE = [
 /* ─── HOD: SimulationModal ─────────────────────────────────────────────────── */
 function SimulationModal({ leave, onClose }) {
   const [loading, setLoading] = useState(true);
-  const [result, setResult]   = useState(null);
-  const [error, setError]     = useState('');
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     (async () => {
       try {
         const res = await runSimulation({
           faculty_id: leave.faculty_id,
-          from_date:  leave.from_date,
-          to_date:    leave.to_date,
+          from_date: leave.from_date,
+          to_date: leave.to_date,
         });
         setResult(res.data.data);
       } catch (e) {
@@ -217,9 +218,8 @@ function SimulationModal({ leave, onClose }) {
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Proposed Substitutions</p>
                   {result.substitutions.map((s, i) => (
-                    <div key={i} className={`rounded-xl border p-3 flex items-center justify-between ${
-                      s.status === 'ASSIGNED' ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
-                    }`}>
+                    <div key={i} className={`rounded-xl border p-3 flex items-center justify-between ${s.status === 'ASSIGNED' ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
+                      }`}>
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{s.subject} <span className="text-slate-400 font-normal">({s.classId})</span></p>
                         <p className="text-xs text-slate-500">{s.day} · {s.timeSlot}</p>
@@ -248,21 +248,30 @@ function SimulationModal({ leave, onClose }) {
 
 /* ─── Main Dashboard Component ────────────────────────────────────────────── */
 export default function Dashboard() {
-  const [heatmapData,   setHeatmapData]   = useState([]);
-  const [summary,       setSummary]       = useState({ totalLeaves: 0, pendingLeaves: 0, avgImpact: 0 });
-  const [leaderboard,   setLeaderboard]   = useState([]);
-  const [facultyData,   setFacultyData]   = useState(null);
-  const [hodData,       setHodData]       = useState(null);
+  const [heatmapData, setHeatmapData] = useState([]);
+  const [summary, setSummary] = useState({ totalLeaves: 0, pendingLeaves: 0, avgImpact: 0 });
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [facultyData, setFacultyData] = useState(null);
+  const [hodData, setHodData] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState('');
-  const [simLeave,      setSimLeave]      = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [simLeave, setSimLeave] = useState(null);
 
-  const rawUser   = JSON.parse(localStorage.getItem('iflo_user') || '{}');
+  const rawUser = JSON.parse(localStorage.getItem('iflo_user') || '{}');
   const isActingHod = rawUser.role !== 'hod' && rawUser.acting_role === 'hod';
-  const role      = (rawUser.role === 'hod' || rawUser.acting_role === 'hod') ? 'hod' : rawUser.role || 'guest';
+
+  // CRITICAL: Detect view based on ROUTE, not just user role
+  // This ensures /faculty always shows faculty UI, /hod always shows HOD UI
+  const location = useLocation();
+  const isHodRoute = location.pathname.startsWith('/hod');
+  const isFacultyRoute = location.pathname.startsWith('/faculty');
+
+  // For acting HOD: route determines view
+  // For real HOD/faculty: route also determines view (defensive)
+  const role = isHodRoute ? 'hod' : (isFacultyRoute ? 'faculty' : (rawUser.role === 'hod' || rawUser.acting_role === 'hod') ? 'hod' : rawUser.role || 'guest');
   const isFaculty = role === 'faculty';
-  const isHod     = role === 'hod';
+  const isHod = role === 'hod';
   const showGlobal = !isFaculty && !isHod;
   const user = { ...rawUser, role };
 
@@ -345,12 +354,12 @@ export default function Dashboard() {
 
   const chartData = showGlobal
     ? leaderboard.map((d) => ({
-        name: d.departmentName.substring(0, 4),
-        load: d.avgFacultyLoad,
-      }))
+      name: d.departmentName.substring(0, 4),
+      load: d.avgFacultyLoad,
+    }))
     : [];
 
-  const headerTitle    = isFaculty ? 'Faculty Dashboard' : isHod ? (isActingHod ? 'Acting HOD Dashboard' : 'HOD Dashboard') : 'Dashboard Overview';
+  const headerTitle = isFaculty ? 'Faculty Dashboard' : isHod ? (isActingHod ? 'Acting HOD Dashboard' : 'HOD Dashboard') : 'Dashboard Overview';
   const headerSubtitle = isFaculty
     ? 'Track your leave requests, substitutions, and timetable'
     : isHod
@@ -388,11 +397,11 @@ export default function Dashboard() {
               taken={facultyData.summary.leavesTaken ?? 0}
               max={facultyData.summary.maxLeaves ?? 12}
             />
-            <StatCard title="Your Leaves"    value={facultyData.summary.totalLeaves}          icon={Users}       iconBg="bg-indigo-50"  iconColor="text-indigo-600" />
-            <StatCard title="Pending"         value={facultyData.summary.pending}              icon={Clock}       iconBg="bg-amber-50"   iconColor="text-amber-600"
+            <StatCard title="Your Leaves" value={facultyData.summary.totalLeaves} icon={Users} iconBg="bg-indigo-50" iconColor="text-indigo-600" />
+            <StatCard title="Pending" value={facultyData.summary.pending} icon={Clock} iconBg="bg-amber-50" iconColor="text-amber-600"
               badge={facultyData.summary.pending > 0 ? 'Action' : 'Clear'} badgeColor={facultyData.summary.pending > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} />
-            <StatCard title="Normal Load"     value={facultyData.summary.normalLoad ?? '—'}   icon={BookOpen}    iconBg="bg-slate-50"   iconColor="text-slate-500"  subtext="classes/week" />
-            <StatCard title="Extra Load"      value={facultyData.summary.extraLoad ?? 0}      icon={Zap}         iconBg="bg-orange-50"  iconColor="text-orange-500" subtext="substitution classes" />
+            <StatCard title="Normal Load" value={facultyData.summary.normalLoad ?? '—'} icon={BookOpen} iconBg="bg-slate-50" iconColor="text-slate-500" subtext="classes/week" />
+            <StatCard title="Extra Load" value={facultyData.summary.extraLoad ?? 0} icon={Zap} iconBg="bg-orange-50" iconColor="text-orange-500" subtext="substitution classes" />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -540,16 +549,16 @@ export default function Dashboard() {
           )}
         </>
 
-      /* ═══ HOD VIEW ═══ */
+        /* ═══ HOD VIEW ═══ */
       ) : isHod && hodData ? (
         <>
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <StatCard title="Team Leaves"    value={hodData.summary.totalLeaves}  icon={Users}       iconBg="bg-indigo-50"  iconColor="text-indigo-600" />
-            <StatCard title="Pending Review" value={hodData.summary.pending}      icon={Clock}       iconBg="bg-amber-50"   iconColor="text-amber-600"
+            <StatCard title="Team Leaves" value={hodData.summary.totalLeaves} icon={Users} iconBg="bg-indigo-50" iconColor="text-indigo-600" />
+            <StatCard title="Pending Review" value={hodData.summary.pending} icon={Clock} iconBg="bg-amber-50" iconColor="text-amber-600"
               badge={hodData.summary.pending > 0 ? 'Action' : 'Clear'} badgeColor={hodData.summary.pending > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} />
-            <StatCard title="Approved"       value={hodData.summary.approved}     icon={CheckCircle} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-            <StatCard title="Avg Impact"     value={hodData.summary.averageImpact?.toFixed?.(1) ?? hodData.summary.averageImpact} icon={Activity} iconBg="bg-violet-50" iconColor="text-violet-600" />
+            <StatCard title="Approved" value={hodData.summary.approved} icon={CheckCircle} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+            <StatCard title="Avg Impact" value={hodData.summary.averageImpact?.toFixed?.(1) ?? hodData.summary.averageImpact} icon={Activity} iconBg="bg-violet-50" iconColor="text-violet-600" />
           </div>
 
           {/* Acting HOD notice */}
@@ -672,15 +681,15 @@ export default function Dashboard() {
           {simLeave && <SimulationModal leave={simLeave} onClose={() => setSimLeave(null)} />}
         </>
 
-      /* ═══ GLOBAL / ADMIN VIEW ═══ */
+        /* ═══ GLOBAL / ADMIN VIEW ═══ */
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="Total Leaves"  value={summary.totalLeaves}                    icon={Users}       iconBg="bg-indigo-50"  iconColor="text-indigo-600" badge="+12%" badgeColor="bg-emerald-100 text-emerald-700" />
-            <StatCard title="Pending"       value={summary.pendingLeaves}                  icon={Clock}       iconBg="bg-amber-50"   iconColor="text-amber-600"
+            <StatCard title="Total Leaves" value={summary.totalLeaves} icon={Users} iconBg="bg-indigo-50" iconColor="text-indigo-600" badge="+12%" badgeColor="bg-emerald-100 text-emerald-700" />
+            <StatCard title="Pending" value={summary.pendingLeaves} icon={Clock} iconBg="bg-amber-50" iconColor="text-amber-600"
               badge={summary.pendingLeaves > 0 ? 'Review' : 'Clear'} badgeColor={summary.pendingLeaves > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} />
-            <StatCard title="Avg Impact"    value={Number(summary.avgImpact).toFixed(1)}   icon={Activity}    iconBg="bg-violet-50"  iconColor="text-violet-600" />
-            <StatCard title="Success Rate"  value="92%"                                    icon={CheckCircle} iconBg="bg-emerald-50" iconColor="text-emerald-600" badge="↑ 4%" badgeColor="bg-emerald-100 text-emerald-700" />
+            <StatCard title="Avg Impact" value={Number(summary.avgImpact).toFixed(1)} icon={Activity} iconBg="bg-violet-50" iconColor="text-violet-600" />
+            <StatCard title="Success Rate" value="92%" icon={CheckCircle} iconBg="bg-emerald-50" iconColor="text-emerald-600" badge="↑ 4%" badgeColor="bg-emerald-100 text-emerald-700" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -724,8 +733,8 @@ export default function Dashboard() {
                 <TrendingUp className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Avg Faculty Load</h2>
               </div>
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="w-full min-h-[220px]">
+                <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={chartData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
