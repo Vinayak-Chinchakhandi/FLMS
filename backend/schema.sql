@@ -1,25 +1,42 @@
--- Departments
-CREATE TABLE departments (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  hod_id INTEGER REFERENCES users(id)
-);
-
--- Users
+-- ===============================
+-- USERS (CREATE FIRST)
+-- ===============================
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   name VARCHAR(150) NOT NULL,
   email VARCHAR(150) UNIQUE NOT NULL,
   password TEXT NOT NULL,
   role VARCHAR(20) NOT NULL,
-  department_id INTEGER REFERENCES departments(id),
+  department_id INTEGER,
   skills TEXT[],
   max_leaves INTEGER DEFAULT 12,
   leaves_taken INTEGER DEFAULT 0,
   acting_role VARCHAR(20)
 );
 
--- Timetable
+-- ===============================
+-- DEPARTMENTS
+-- ===============================
+CREATE TABLE departments (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  hod_id INTEGER
+);
+
+-- ===============================
+-- ADD FK AFTER BOTH TABLES EXIST
+-- ===============================
+ALTER TABLE users
+ADD CONSTRAINT fk_users_department
+FOREIGN KEY (department_id) REFERENCES departments(id);
+
+ALTER TABLE departments
+ADD CONSTRAINT fk_departments_hod
+FOREIGN KEY (hod_id) REFERENCES users(id);
+
+-- ===============================
+-- OTHER TABLES
+-- ===============================
 CREATE TABLE timetable (
   id SERIAL PRIMARY KEY,
   faculty_id INTEGER REFERENCES users(id),
@@ -30,7 +47,6 @@ CREATE TABLE timetable (
   class_id VARCHAR(20)
 );
 
--- Leave Requests
 CREATE TABLE leave_requests (
   id SERIAL PRIMARY KEY,
   faculty_id INTEGER REFERENCES users(id),
@@ -45,7 +61,6 @@ CREATE TABLE leave_requests (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Substitutions
 CREATE TABLE substitutions (
   id SERIAL PRIMARY KEY,
   leave_id INTEGER REFERENCES leave_requests(id),
@@ -60,7 +75,6 @@ CREATE TABLE substitutions (
   status VARCHAR(20) CHECK (status IN ('assigned','accepted','rejected'))
 );
 
--- Impact Logs
 CREATE TABLE impact_logs (
   id SERIAL PRIMARY KEY,
   leave_id INTEGER REFERENCES leave_requests(id),
@@ -69,7 +83,6 @@ CREATE TABLE impact_logs (
   overload_score NUMERIC(5,2)
 );
 
--- Dept Scores
 CREATE TABLE dept_scores (
   id SERIAL PRIMARY KEY,
   department_id INTEGER REFERENCES departments(id),
@@ -77,7 +90,6 @@ CREATE TABLE dept_scores (
   score INTEGER
 );
 
--- Acting HOD Assignments
 CREATE TABLE acting_hod_assignments (
   id SERIAL PRIMARY KEY,
   department_id INTEGER REFERENCES departments(id),
@@ -88,7 +100,9 @@ CREATE TABLE acting_hod_assignments (
   active BOOLEAN DEFAULT true
 );
 
--- Indexes
+-- ===============================
+-- INDEXES
+-- ===============================
 CREATE INDEX idx_users_department ON users(department_id);
 CREATE INDEX idx_leave_faculty ON leave_requests(faculty_id);
 CREATE INDEX idx_substitute_faculty ON substitutions(substitute_faculty_id);
