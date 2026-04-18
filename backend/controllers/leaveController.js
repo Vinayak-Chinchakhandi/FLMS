@@ -25,7 +25,7 @@ async function runApproveWorkflow(leaveId, leave) {
   const workflow = {};
 
   // 1. Increment leave quota counter
-  await incrementLeavesTaken(leave.faculty_id);
+  await incrementLeavesTaken(leave.faculty_id, leave.from_date,leave.to_date);
 
   // 2. Run AI simulation and create substitute assignments
   const simulation = await runSimulation(Number(leave.faculty_id), leave.from_date, leave.to_date);

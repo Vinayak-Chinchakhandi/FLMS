@@ -863,24 +863,51 @@ export const setUserActingRole = async (userId, actingRole) => {
 };
 
 // Increment leaves_taken by 1 for a user (called on leave approval)
-export const incrementLeavesTaken = async (userId) => {
+export const incrementLeavesTaken = async (userId, from_date, to_date) => {
   const numId = Number(userId);
+
+  if (!numId) {
+    throw new Error('Invalid user ID');
+  }
+
+  if (!from_date || !to_date) {
+    throw new Error('Invalid leave dates');
+  }
+
+  // ✅ Safe parsing
+  const start = new Date(from_date + 'T00:00:00');
+  const end = new Date(to_date + 'T00:00:00');
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+    throw new Error('Invalid date range');
+  }
+
+  // ✅ Calculate number of days (inclusive)
+  const diffTime = end.getTime() - start.getTime();
+  const days = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  console.log('[LEAVE DAYS]:', days);
+
+  // ✅ MOCK MODE FIX
   if (!useDB()) {
     const user = mock.users.find((u) => u.id === numId);
-    if (user) user.leaves_taken = (user.leaves_taken || 0) + 1;
+    if (user) user.leaves_taken = (user.leaves_taken || 0) + days;
     return user || null;
   }
+
   try {
     const { rows } = await pool.query(
-      'UPDATE users SET leaves_taken = COALESCE(leaves_taken, 0) + 1 WHERE id = $1 RETURNING *',
-      [numId]
+      `UPDATE users 
+       SET leaves_taken = COALESCE(leaves_taken, 0) + $2 
+       WHERE id = $1 
+       RETURNING *`,
+      [numId, days]
     );
+
     return rows[0] || null;
   } catch (e) {
-    console.warn('[dataLayer] incrementLeavesTaken DB error, using mock:', e.message);
-    const user = mock.users.find((u) => u.id === numId);
-    if (user) user.leaves_taken = (user.leaves_taken || 0) + 1;
-    return user || null;
+    console.warn('[incrementLeavesTaken ERROR]:', e.message);
+    throw e;
   }
 };
 
