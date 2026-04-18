@@ -127,21 +127,29 @@ export const incrementLeavesTaken = async (userId, from_date, to_date) => {
     throw new Error('Invalid leave dates');
   }
 
-  const start = new Date(from_date);
-  const end = new Date(to_date);
+  // ✅ Force correct parsing (NO timezone bugs)
+  const start = new Date(from_date + "T00:00:00");
+  const end = new Date(to_date + "T00:00:00");
 
-  if (isNaN(start) || isNaN(end) || end < start) {
+  // ✅ Proper validation
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    throw new Error('Invalid date format');
+  }
+
+  // ✅ Correct comparison
+  if (end.getTime() < start.getTime()) {
     throw new Error('Invalid date range');
   }
 
-  const days =
-    Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  // ✅ Inclusive days calculation
+  const diffTime = end.getTime() - start.getTime();
+  const days = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
   try {
     const { rows } = await pool.query(
-      `UPDATE users 
-       SET leaves_taken = COALESCE(leaves_taken, 0) + $2 
-       WHERE id = $1 
+      `UPDATE users
+       SET leaves_taken = COALESCE(leaves_taken, 0) + $2
+       WHERE id = $1
        RETURNING *`,
       [numId, days]
     );
